@@ -1,0 +1,98 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* TempTree Brand Palette */
+  --color-plum: #601D49;
+  --color-mauve: #BD5579;
+  --color-dusty-pink: #EA9D9D;
+  --color-cream: #FFEBB8;
+
+  --foreground-rgb: 96, 29, 73;
+  --background-rgb: 255, 235, 184;
+}
+
+@layer base {
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  html {
+    scroll-behavior: smooth;
+    color: var(--color-plum);
+    background-color: var(--color-cream);
+  }
+
+  body {
+    font-family: var(--font-poppins), sans-serif;
+    color: var(--color-plum);
+    background-color: var(--color-cream);
+    min-height: 100vh;
+    overflow-x: hidden;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-playfair), serif;
+  }
+}
+
+/* Custom aesthetic utility classes */
+.font-serif-brand {
+  font-family: var(--font-playfair), Georgia, serif;
+}
+
+.font-sans-brand {
+  font-family: var(--font-poppins), system-ui, sans-serif;
+}
+
+.text-gradient-sakura {
+  background: linear-gradient(135deg, #601D49 0%, #BD5579 50%, #EA9D9D 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.text-gradient-cream {
+  background: linear-gradient(135deg, #FFEBB8 0%, #EA9D9D 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.bg-glass {
+  background: rgba(255, 235, 184, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.bg-glass-dark {
+  background: rgba(96, 29, 73, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.border-subtle {
+  border-color: rgba(189, 85, 121, 0.25);
+}
+
+/* Custom aesthetic scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-cream);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-dusty-pink);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-mauve);
+}

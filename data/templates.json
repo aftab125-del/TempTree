@@ -1,0 +1,619 @@
+[
+  {
+    "id": "dreamy-sakura-haze",
+    "name": "Sakura Ethereal Haze",
+    "category": "Dreamy",
+    "description": "Soft gradient blooms with glowing serif typography and delicate framing.",
+    "tags": ["Aesthetic", "Soft", "Sakura", "Romantic", "Quote"],
+    "accentColor": "#BD5579",
+    "thumbnailUrl": "/previews/dreamy-sakura-haze.png",
+    "layoutJson": {
+      "width": 1080,
+      "height": 1920,
+      "backgroundColor": "#601D49",
+      "backgroundGradient": {
+        "type": "linear",
+        "angle": 180,
+        "colors": [
+          { "offset": 0, "color": "#601D49" },
+          { "offset": 0.5, "color": "#BD5579" },
+          { "offset": 1, "color": "#FFEBB8" }
+        ]
+      },
+      "elements": [
+        {
+          "id": "bg-frame",
+          "type": "rect",
+          "left": 60,
+          "top": 80,
+          "width": 960,
+          "height": 1760,
+          "fill": "transparent",
+          "stroke": "#FFEBB8",
+          "strokeWidth": 3,
+          "rx": 24,
+          "ry": 24,
+          "opacity": 0.4
+        },
+        {
+          "id": "tagline-small",
+          "type": "text",
+          "left": 540,
+          "top": 240,
+          "text": "• SPRING BLOSSOM EDITION •",
+          "fontFamily": "Poppins",
+          "fontSize": 28,
+          "fontWeight": "600",
+          "fill": "#FFEBB8",
+          "textAlign": "center",
+          "letterSpacing": 6
+        },
+        {
+          "id": "main-title",
+          "type": "text",
+          "left": 540,
+          "top": 360,
+          "text": "Dreaming in Petals",
+          "fontFamily": "Playfair Display",
+          "fontSize": 78,
+          "fontWeight": "700",
+          "fontStyle": "italic",
+          "fill": "#FFEBB8",
+          "textAlign": "center"
+        },
+        {
+          "id": "photo-placeholder-1",
+          "type": "image",
+          "left": 140,
+          "top": 540,
+          "width": 800,
+          "height": 880,
+          "src": "https://images.unsplash.com/photo-1522383225653-ed111181a951?w=1000&auto=format&fit=crop&q=80",
+          "placeholderLabel": "Tap to replace photo",
+          "isPlaceholder": true,
+          "stroke": "#FFEBB8",
+          "strokeWidth": 4,
+          "cornerRadius": 16
+        },
+        {
+          "id": "quote-text",
+          "type": "text",
+          "left": 540,
+          "top": 1500,
+          "text": "\"Like petals floating in the wind, finding stillness in motion.\"",
+          "fontFamily": "Playfair Display",
+          "fontSize": 42,
+          "fontWeight": "400",
+          "fontStyle": "italic",
+          "fill": "#601D49",
+          "textAlign": "center"
+        },
+        {
+          "id": "date-footer",
+          "type": "text",
+          "left": 540,
+          "top": 1680,
+          "text": "TEMPTREE AESTHETIC STUDIO",
+          "fontFamily": "Poppins",
+          "fontSize": 24,
+          "fontWeight": "500",
+          "fill": "#601D49",
+          "textAlign": "center",
+          "letterSpacing": 4
+        }
+      ]
+    }
+  },
+  {
+    "id": "y2k-cyber-sparkle",
+    "name": "Cyber Sparkle 2000",
+    "category": "Y2K",
+    "description": "High-energy early 2000s cyber aesthetic with bold chrome accents and starry vibes.",
+    "tags": ["Y2K", "Cyber", "2000s", "Glow", "Chrome"],
+    "accentColor": "#BD5579",
+    "thumbnailUrl": "/previews/y2k-cyber-sparkle.png",
+    "layoutJson": {
+      "width": 1080,
+      "height": 1920,
+      "backgroundColor": "#1A0917",
+      "elements": [
+        {
+          "id": "cyber-glow-bg",
+          "type": "rect",
+          "left": 100,
+          "top": 200,
+          "width": 880,
+          "height": 1520,
+          "fill": "#601D49",
+          "stroke": "#EA9D9D",
+          "strokeWidth": 6,
+          "rx": 30,
+          "ry": 30,
+          "opacity": 0.85
+        },
+        {
+          "id": "cyber-badge",
+          "type": "rect",
+          "left": 540,
+          "top": 280,
+          "width": 420,
+          "height": 64,
+          "fill": "#EA9D9D",
+          "rx": 32,
+          "ry": 32
+        },
+        {
+          "id": "badge-text",
+          "type": "text",
+          "left": 540,
+          "top": 282,
+          "text": "★ Y2K ARCHIVE v.01 ★",
+          "fontFamily": "Poppins",
+          "fontSize": 26,
+          "fontWeight": "800",
+          "fill": "#601D49",
+          "textAlign": "center"
+        },
+        {
+          "id": "y2k-header",
+          "type": "text",
+          "left": 540,
+          "top": 400,
+          "text": "CYBER CRUSH",
+          "fontFamily": "Playfair Display",
+          "fontSize": 92,
+          "fontWeight": "900",
+          "fill": "#FFEBB8",
+          "textAlign": "center",
+          "letterSpacing": 8
+        },
+        {
+          "id": "photo-placeholder-y2k",
+          "type": "image",
+          "left": 180,
+          "top": 570,
+          "width": 720,
+          "height": 780,
+          "src": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=1000&auto=format&fit=crop&q=80",
+          "placeholderLabel": "Upload Selfie or Outfit",
+          "isPlaceholder": true,
+          "stroke": "#FFEBB8",
+          "strokeWidth": 6,
+          "cornerRadius": 24
+        },
+        {
+          "id": "star-sticker-1",
+          "type": "text",
+          "left": 220,
+          "top": 540,
+          "text": "✧ ✦ ✧",
+          "fontFamily": "Poppins",
+          "fontSize": 48,
+          "fontWeight": "700",
+          "fill": "#FFEBB8",
+          "textAlign": "left"
+        },
+        {
+          "id": "star-sticker-2",
+          "type": "text",
+          "left": 860,
+          "top": 1320,
+          "text": "✦ ✧",
+          "fontFamily": "Poppins",
+          "fontSize": 48,
+          "fontWeight": "700",
+          "fill": "#EA9D9D",
+          "textAlign": "right"
+        },
+        {
+          "id": "subtext-y2k",
+          "type": "text",
+          "left": 540,
+          "top": 1440,
+          "text": "CURRENT MOOD: 100% UNSTOPPABLE",
+          "fontFamily": "Poppins",
+          "fontSize": 32,
+          "fontWeight": "700",
+          "fill": "#FFEBB8",
+          "textAlign": "center",
+          "letterSpacing": 3
+        },
+        {
+          "id": "ticker-y2k",
+          "type": "text",
+          "left": 540,
+          "top": 1540,
+          "text": "ONLINE NOW • TAP FOR MORE • NO BAD VIBES",
+          "fontFamily": "Poppins",
+          "fontSize": 24,
+          "fontWeight": "500",
+          "fill": "#EA9D9D",
+          "textAlign": "center",
+          "letterSpacing": 4
+        }
+      ]
+    }
+  },
+  {
+    "id": "minimal-studio-editorial",
+    "name": "Studio Editorial No. 4",
+    "category": "Minimal",
+    "description": "Sophisticated white space with refined typography and understated elegance.",
+    "tags": ["Minimal", "Clean", "Editorial", "Vogue", "Modern"],
+    "accentColor": "#601D49",
+    "thumbnailUrl": "/previews/minimal-studio-editorial.png",
+    "layoutJson": {
+      "width": 1080,
+      "height": 1920,
+      "backgroundColor": "#FFEBB8",
+      "elements": [
+        {
+          "id": "sub-header",
+          "type": "text",
+          "left": 140,
+          "top": 180,
+          "text": "VOLUME 04 / ISSUE 09",
+          "fontFamily": "Poppins",
+          "fontSize": 24,
+          "fontWeight": "500",
+          "fill": "#601D49",
+          "textAlign": "left",
+          "letterSpacing": 5
+        },
+        {
+          "id": "main-heading",
+          "type": "text",
+          "left": 140,
+          "top": 250,
+          "text": "Quiet Moments",
+          "fontFamily": "Playfair Display",
+          "fontSize": 86,
+          "fontWeight": "600",
+          "fill": "#601D49",
+          "textAlign": "left"
+        },
+        {
+          "id": "divider-line",
+          "type": "rect",
+          "left": 140,
+          "top": 370,
+          "width": 800,
+          "height": 2,
+          "fill": "#BD5579",
+          "opacity": 0.5
+        },
+        {
+          "id": "photo-placeholder-minimal",
+          "type": "image",
+          "left": 140,
+          "top": 430,
+          "width": 800,
+          "height": 1040,
+          "src": "https://images.unsplash.com/photo-1509631179647-0177331693ae?w=1000&auto=format&fit=crop&q=80",
+          "placeholderLabel": "Add Editorial Image",
+          "isPlaceholder": true,
+          "stroke": "#601D49",
+          "strokeWidth": 1
+        },
+        {
+          "id": "caption-text",
+          "type": "text",
+          "left": 140,
+          "top": 1540,
+          "text": "The beauty of simplicity lies in the spaces between thoughts.",
+          "fontFamily": "Playfair Display",
+          "fontSize": 36,
+          "fontWeight": "400",
+          "fontStyle": "italic",
+          "fill": "#601D49",
+          "textAlign": "left"
+        },
+        {
+          "id": "footer-brand",
+          "type": "text",
+          "left": 140,
+          "top": 1660,
+          "text": "PARIS • TOKYO • NEW YORK",
+          "fontFamily": "Poppins",
+          "fontSize": 22,
+          "fontWeight": "600",
+          "fill": "#BD5579",
+          "textAlign": "left",
+          "letterSpacing": 6
+        }
+      ]
+    }
+  },
+  {
+    "id": "vintage-polaroid-1970",
+    "name": "1970s Film Mood",
+    "category": "Vintage",
+    "description": "Nostalgic Polaroid film frame with warm sepia tones and vintage typewriter dates.",
+    "tags": ["Vintage", "Retro", "Polaroid", "Film", "Nostalgia"],
+    "accentColor": "#601D49",
+    "thumbnailUrl": "/previews/vintage-polaroid-1970.png",
+    "layoutJson": {
+      "width": 1080,
+      "height": 1920,
+      "backgroundColor": "#601D49",
+      "elements": [
+        {
+          "id": "polaroid-white-frame",
+          "type": "rect",
+          "left": 120,
+          "top": 240,
+          "width": 840,
+          "height": 1180,
+          "fill": "#FFEBB8",
+          "rx": 8,
+          "ry": 8
+        },
+        {
+          "id": "photo-placeholder-polaroid",
+          "type": "image",
+          "left": 180,
+          "top": 300,
+          "width": 720,
+          "height": 860,
+          "src": "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=1000&auto=format&fit=crop&q=80",
+          "placeholderLabel": "Add Polaroid Snap",
+          "isPlaceholder": true,
+          "stroke": "#601D49",
+          "strokeWidth": 1
+        },
+        {
+          "id": "polaroid-handwriting",
+          "type": "text",
+          "left": 540,
+          "top": 1260,
+          "text": "Golden memories • Summer '77",
+          "fontFamily": "Playfair Display",
+          "fontSize": 44,
+          "fontWeight": "600",
+          "fontStyle": "italic",
+          "fill": "#601D49",
+          "textAlign": "center"
+        },
+        {
+          "id": "date-stamp-vintage",
+          "type": "text",
+          "left": 540,
+          "top": 1340,
+          "text": "12 . 08 . 1977  —  FILM ROLL 04",
+          "fontFamily": "Poppins",
+          "fontSize": 24,
+          "fontWeight": "600",
+          "fill": "#BD5579",
+          "textAlign": "center",
+          "letterSpacing": 5
+        },
+        {
+          "id": "bottom-quote",
+          "type": "text",
+          "left": 540,
+          "top": 1540,
+          "text": "Take me back to the golden days.",
+          "fontFamily": "Playfair Display",
+          "fontSize": 52,
+          "fontWeight": "700",
+          "fill": "#EA9D9D",
+          "textAlign": "center"
+        },
+        {
+          "id": "subtext-vintage",
+          "type": "text",
+          "left": 540,
+          "top": 1640,
+          "text": "Captured on 35mm Analog Film",
+          "fontFamily": "Poppins",
+          "fontSize": 24,
+          "fontWeight": "400",
+          "fill": "#FFEBB8",
+          "textAlign": "center",
+          "letterSpacing": 4
+        }
+      ]
+    }
+  },
+  {
+    "id": "bold-vogue-streetwear",
+    "name": "Vogue Streetwear Drop",
+    "category": "Bold",
+    "description": "Striking typography, geometric color blocks, and high-impact visual contrast.",
+    "tags": ["Bold", "Streetwear", "Fashion", "Graphic", "Modern"],
+    "accentColor": "#EA9D9D",
+    "thumbnailUrl": "/previews/bold-vogue-streetwear.png",
+    "layoutJson": {
+      "width": 1080,
+      "height": 1920,
+      "backgroundColor": "#601D49",
+      "elements": [
+        {
+          "id": "top-bar",
+          "type": "rect",
+          "left": 0,
+          "top": 0,
+          "width": 1080,
+          "height": 180,
+          "fill": "#BD5579"
+        },
+        {
+          "id": "top-bar-text",
+          "type": "text",
+          "left": 540,
+          "top": 70,
+          "text": "NEW COLLECTION RELEASE — SS26",
+          "fontFamily": "Poppins",
+          "fontSize": 28,
+          "fontWeight": "800",
+          "fill": "#FFEBB8",
+          "textAlign": "center",
+          "letterSpacing": 6
+        },
+        {
+          "id": "bold-heading",
+          "type": "text",
+          "left": 540,
+          "top": 240,
+          "text": "RAW ENERGY",
+          "fontFamily": "Playfair Display",
+          "fontSize": 110,
+          "fontWeight": "900",
+          "fill": "#FFEBB8",
+          "textAlign": "center",
+          "letterSpacing": 4
+        },
+        {
+          "id": "photo-placeholder-bold",
+          "type": "image",
+          "left": 100,
+          "top": 420,
+          "width": 880,
+          "height": 1000,
+          "src": "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=1000&auto=format&fit=crop&q=80",
+          "placeholderLabel": "Add Streetwear Photo",
+          "isPlaceholder": true,
+          "stroke": "#FFEBB8",
+          "strokeWidth": 6
+        },
+        {
+          "id": "bold-accent-box",
+          "type": "rect",
+          "left": 140,
+          "top": 1480,
+          "width": 800,
+          "height": 180,
+          "fill": "#EA9D9D",
+          "rx": 16,
+          "ry": 16
+        },
+        {
+          "id": "cta-text",
+          "type": "text",
+          "left": 540,
+          "top": 1530,
+          "text": "AVAILABLE WORLDWIDE",
+          "fontFamily": "Poppins",
+          "fontSize": 38,
+          "fontWeight": "900",
+          "fill": "#601D49",
+          "textAlign": "center",
+          "letterSpacing": 4
+        },
+        {
+          "id": "cta-sub",
+          "type": "text",
+          "left": 540,
+          "top": 1590,
+          "text": "LIMITED EDITION OF 500 PIECES",
+          "fontFamily": "Poppins",
+          "fontSize": 22,
+          "fontWeight": "600",
+          "fill": "#601D49",
+          "textAlign": "center",
+          "letterSpacing": 3
+        }
+      ]
+    }
+  },
+  {
+    "id": "dreamy-golden-hour",
+    "name": "Golden Hour Glow",
+    "category": "Dreamy",
+    "description": "Warm sunset tones with glowing soft highlights and romantic poetry typography.",
+    "tags": ["Dreamy", "Golden Hour", "Sunset", "Glow", "Warm"],
+    "accentColor": "#EA9D9D",
+    "thumbnailUrl": "/previews/dreamy-golden-hour.png",
+    "layoutJson": {
+      "width": 1080,
+      "height": 1920,
+      "backgroundColor": "#EA9D9D",
+      "backgroundGradient": {
+        "type": "linear",
+        "angle": 180,
+        "colors": [
+          { "offset": 0, "color": "#BD5579" },
+          { "offset": 0.6, "color": "#EA9D9D" },
+          { "offset": 1, "color": "#FFEBB8" }
+        ]
+      },
+      "elements": [
+        {
+          "id": "sun-circle",
+          "type": "circle",
+          "left": 540,
+          "top": 360,
+          "radius": 260,
+          "fill": "#FFEBB8",
+          "opacity": 0.4
+        },
+        {
+          "id": "golden-tag",
+          "type": "text",
+          "left": 540,
+          "top": 200,
+          "text": "— 6:45 PM MAGIC HOUR —",
+          "fontFamily": "Poppins",
+          "fontSize": 26,
+          "fontWeight": "600",
+          "fill": "#601D49",
+          "textAlign": "center",
+          "letterSpacing": 5
+        },
+        {
+          "id": "golden-heading",
+          "type": "text",
+          "left": 540,
+          "top": 300,
+          "text": "Golden Hour",
+          "fontFamily": "Playfair Display",
+          "fontSize": 90,
+          "fontWeight": "700",
+          "fontStyle": "italic",
+          "fill": "#601D49",
+          "textAlign": "center"
+        },
+        {
+          "id": "photo-placeholder-golden",
+          "type": "image",
+          "left": 160,
+          "top": 460,
+          "width": 760,
+          "height": 920,
+          "src": "https://images.unsplash.com/photo-1518895949257-7621c3c786d7?w=1000&auto=format&fit=crop&q=80",
+          "placeholderLabel": "Add Sunset Portrait",
+          "isPlaceholder": true,
+          "stroke": "#FFEBB8",
+          "strokeWidth": 6,
+          "cornerRadius": 380
+        },
+        {
+          "id": "quote-sunset",
+          "type": "text",
+          "left": 540,
+          "top": 1460,
+          "text": "\"The sky spoke in colors of honey and plum.\"",
+          "fontFamily": "Playfair Display",
+          "fontSize": 44,
+          "fontWeight": "600",
+          "fontStyle": "italic",
+          "fill": "#601D49",
+          "textAlign": "center"
+        },
+        {
+          "id": "subtext-sunset",
+          "type": "text",
+          "left": 540,
+          "top": 1600,
+          "text": "CAPTURE THE LIGHT BEFORE IT FADES",
+          "fontFamily": "Poppins",
+          "fontSize": 24,
+          "fontWeight": "600",
+          "fill": "#601D49",
+          "textAlign": "center",
+          "letterSpacing": 4
+        }
+      ]
+    }
+  }
+]
