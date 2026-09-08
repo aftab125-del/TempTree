@@ -100,3 +100,40 @@
 ::-webkit-scrollbar-thumb:hover {
   background: var(--color-mauve);
 }
+
+/* Scroll-world inspired atmospheric particles & animations */
+@keyframes sakuraFloat {
+  0% {
+    transform: translate3d(0, 0, 0) rotate(0deg) scale(var(--pt-scale, 1));
+    opacity: 0;
+  }
+  15% {
+    opacity: var(--pt-opacity, 0.7);
+  }
+  85% {
+    opacity: var(--pt-opacity, 0.7);
+  }
+  100% {
+    transform: translate3d(var(--pt-drift-x, 40px), -140px, 0) rotate(var(--pt-rot, 210deg)) scale(var(--pt-scale, 1));
+    opacity: 0;
+  }
+}
+
+@keyframes ambientGlowPulse {
+  0%, 100% {
+    opacity: 0.4;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.65;
+    transform: scale(1.1);
+  }
+}
+
+.animate-sakura-float {
+  animation: sakuraFloat linear infinite;
+}
+
+.animate-ambient-glow {
+  animation: ambientGlowPulse 9s ease-in-out infinite;
+}
