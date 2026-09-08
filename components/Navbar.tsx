@@ -19,8 +19,8 @@ export default function Navbar() {
     <header
       className={`fixed top-0 left-0 right-0 z-40 transition-all duration-300 ${
         isScrolled
-          ? "bg-cream/90 backdrop-blur-md border-b border-dustyPink/30 py-3 shadow-sm text-plum"
-          : "bg-gradient-to-b from-plum/60 to-transparent py-5 text-cream"
+          ? "bg-cream/95 backdrop-blur-md border-b border-dustyPink/40 py-3 shadow-sm text-plum"
+          : "bg-gradient-to-b from-plum/70 to-transparent py-5 text-cream"
       }`}
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between">
@@ -29,10 +29,10 @@ export default function Navbar() {
           href="/"
           className="flex items-center space-x-2 group focus:outline-none"
         >
-          <div className="w-8 h-8 rounded-full bg-mauve/20 border border-dustyPink/40 flex items-center justify-center group-hover:scale-110 transition-transform">
+          <div className="w-8 h-8 rounded-full bg-mauve/25 border border-dustyPink/40 flex items-center justify-center group-hover:scale-110 transition-transform">
             <Sparkles
               className={`w-4 h-4 ${
-                isScrolled ? "text-mauve" : "text-cream"
+                isScrolled ? "text-plum" : "text-cream"
               } transition-colors`}
             />
           </div>
@@ -45,13 +45,17 @@ export default function Navbar() {
         <nav className="hidden md:flex items-center space-x-8 text-sm font-medium">
           <Link
             href="/#categories"
-            className="hover:text-mauve transition-colors tracking-wide"
+            className={`${
+              isScrolled ? "text-plum/90 hover:text-plum" : "text-cream/90 hover:text-cream"
+            } transition-colors tracking-wide`}
           >
             Aesthetics
           </Link>
           <Link
             href="/gallery"
-            className="hover:text-mauve transition-colors tracking-wide flex items-center gap-1.5"
+            className={`${
+              isScrolled ? "text-plum/90 hover:text-plum" : "text-cream/90 hover:text-cream"
+            } transition-colors tracking-wide flex items-center gap-1.5`}
           >
             <Grid className="w-4 h-4" />
             Gallery
@@ -64,7 +68,7 @@ export default function Navbar() {
             href="/gallery"
             className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-xs sm:text-sm font-semibold tracking-wide transition-all shadow-md hover:shadow-lg transform active:scale-95 ${
               isScrolled
-                ? "bg-plum text-cream hover:bg-mauve"
+                ? "bg-plum text-cream hover:bg-plum-light"
                 : "bg-cream text-plum hover:bg-dustyPink hover:text-plum"
             }`}
           >

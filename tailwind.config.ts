@@ -9,26 +9,50 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
+        // Charcoal (was plum)
         plum: {
           DEFAULT: "var(--color-plum)",
           deep: "var(--color-plum)",
-          light: "#78275c",
-          dark: "#451233",
+          light: "#636363",
+          dark: "#2B2B2B",
         },
+        charcoal: {
+          DEFAULT: "#4A4A4A",
+          light: "#636363",
+          dark: "#2B2B2B",
+        },
+        // Dusty Mauve (was mauve)
         mauve: {
           DEFAULT: "var(--color-mauve)",
-          light: "#c96c8d",
-          dark: "#9e4363",
+          light: "#EDC9D0",
+          dark: "#CFA0AA",
         },
+        dustyMauve: {
+          DEFAULT: "#E2B4BD",
+          light: "#EDC9D0",
+          dark: "#CFA0AA",
+        },
+        // Peach Pink (was dusty pink)
         dustyPink: {
           DEFAULT: "var(--color-dusty-pink)",
-          light: "#f0b3b3",
-          dark: "#d68383",
+          light: "#FCEAE7",
+          dark: "#E5C2BC",
         },
+        peachPink: {
+          DEFAULT: "#F7D6D0",
+          light: "#FCEAE7",
+          dark: "#E5C2BC",
+        },
+        // Blush White (was cream)
         cream: {
           DEFAULT: "var(--color-cream)",
-          light: "#fff4d4",
-          dark: "#ebd49e",
+          light: "#FFFFFF",
+          dark: "#F5EBEB",
+        },
+        blushWhite: {
+          DEFAULT: "#FFF5F5",
+          light: "#FFFFFF",
+          dark: "#F5EBEB",
         },
       },
       fontFamily: {

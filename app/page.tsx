@@ -5,7 +5,7 @@ import SakuraScrollHero from "@/components/SakuraScrollHero";
 import TemplateCard from "@/components/TemplateCard";
 import templatesData from "@/data/templates.json";
 import { Template, CATEGORIES } from "@/types/template";
-import { Sparkles, ArrowRight, Grid, Wand2, Download, Smartphone } from "lucide-react";
+import { Sparkles, ArrowRight, Grid, Wand2, Download } from "lucide-react";
 
 export default function HomePage() {
   const templates: Template[] = templatesData as Template[];
@@ -13,34 +13,36 @@ export default function HomePage() {
   const previewTemplates = templates.slice(0, 4);
 
   return (
-    <main className="min-h-screen bg-cream text-plum selection:bg-mauve selection:text-cream flex flex-col">
+    <main className="min-h-screen text-cream selection:bg-mauve selection:text-plum flex flex-col relative">
       {/* Top Floating Navigation */}
       <Navbar />
 
       {/* ------------------------------------------------------------- */}
-      {/* PART 2: SAKURA SCROLL HERO (300vh scroll container) */}
+      {/* PART 2: SAKURA SCROLL HERO (300vh scroll container)            */}
+      {/* Fixed background pinned at z-0 with dark overlay at z-[1]      */}
+      {/* Freezes on frame 300 once scroll reaches 100%                 */}
       {/* ------------------------------------------------------------- */}
       <SakuraScrollHero />
 
       {/* ------------------------------------------------------------- */}
-      {/* GALLERY PREVIEW SECTION (Transitions naturally below the hero) */}
+      {/* GALLERY PREVIEW SECTION (Scrolls over fixed blooming tree)    */}
       {/* ------------------------------------------------------------- */}
       <section
         id="gallery-preview"
-        className="relative z-30 bg-plum text-cream py-24 px-4 sm:px-6 lg:px-8 border-t border-dustyPink/20"
+        className="relative z-10 text-cream py-24 px-4 sm:px-6 lg:px-8 border-t border-dustyPink/25"
       >
         <div className="max-w-7xl mx-auto">
           {/* Section Header */}
           <div className="flex flex-col md:flex-row md:items-end justify-between mb-16 gap-6">
             <div>
-              <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-mauve/30 border border-dustyPink/30 text-dustyPink text-xs font-semibold uppercase tracking-widest mb-3">
-                <Sparkles className="w-3.5 h-3.5" />
+              <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-mauve/25 border border-dustyPink/40 text-cream text-xs font-semibold uppercase tracking-widest mb-3">
+                <Sparkles className="w-3.5 h-3.5 text-dustyPink" />
                 <span>Curated Story Templates</span>
               </div>
               <h2 className="font-playfair text-4xl sm:text-5xl font-bold tracking-tight text-cream">
                 Choose your canvas.
               </h2>
-              <p className="font-poppins text-cream/70 text-base max-w-xl mt-3 font-light">
+              <p className="font-poppins text-cream/80 text-base max-w-xl mt-3 font-light">
                 Handcrafted Instagram Story layouts ready for your photography, quotes, and thoughts. No sign-up, completely free.
               </p>
             </div>
@@ -63,7 +65,7 @@ export default function HomePage() {
               <Link
                 key={cat}
                 href={`/gallery?category=${encodeURIComponent(cat)}`}
-                className="px-4 py-2 rounded-full text-xs font-medium bg-plum-light/60 hover:bg-mauve text-cream border border-dustyPink/30 hover:border-dustyPink transition-all duration-300"
+                className="px-4 py-2 rounded-full text-xs font-medium bg-plum-light/50 hover:bg-mauve text-cream hover:text-plum border border-dustyPink/30 hover:border-dustyPink transition-all duration-300"
               >
                 {cat}
               </Link>
@@ -79,43 +81,43 @@ export default function HomePage() {
 
           {/* Features / How It Works Strip */}
           <div className="mt-24 pt-16 border-t border-dustyPink/20 grid grid-cols-1 md:grid-cols-3 gap-8">
-            <div className="flex items-start space-x-4 p-6 rounded-2xl bg-plum-light/30 border border-dustyPink/15">
-              <div className="w-12 h-12 rounded-2xl bg-mauve/30 border border-dustyPink/40 flex items-center justify-center flex-shrink-0">
+            <div className="flex items-start space-x-4 p-6 rounded-2xl bg-plum-light/25 border border-dustyPink/20">
+              <div className="w-12 h-12 rounded-2xl bg-mauve/25 border border-dustyPink/40 flex items-center justify-center flex-shrink-0">
                 <Grid className="w-6 h-6 text-dustyPink" />
               </div>
               <div>
                 <h3 className="font-playfair text-lg font-bold text-cream mb-1">
                   1. Pick an Aesthetic
                 </h3>
-                <p className="text-xs text-cream/70 font-light leading-relaxed">
+                <p className="text-xs text-cream/75 font-light leading-relaxed">
                   Browse vintage polaroids, cyber Y2K stickers, soft minimal editorial, or dreamy petals.
                 </p>
               </div>
             </div>
 
-            <div className="flex items-start space-x-4 p-6 rounded-2xl bg-plum-light/30 border border-dustyPink/15">
-              <div className="w-12 h-12 rounded-2xl bg-mauve/30 border border-dustyPink/40 flex items-center justify-center flex-shrink-0">
+            <div className="flex items-start space-x-4 p-6 rounded-2xl bg-plum-light/25 border border-dustyPink/20">
+              <div className="w-12 h-12 rounded-2xl bg-mauve/25 border border-dustyPink/40 flex items-center justify-center flex-shrink-0">
                 <Wand2 className="w-6 h-6 text-dustyPink" />
               </div>
               <div>
                 <h3 className="font-playfair text-lg font-bold text-cream mb-1">
                   2. Customize Inline
                 </h3>
-                <p className="text-xs text-cream/70 font-light leading-relaxed">
+                <p className="text-xs text-cream/75 font-light leading-relaxed">
                   Click to replace photos, tweak typography, add quotes, and switch background palettes effortlessly.
                 </p>
               </div>
             </div>
 
-            <div className="flex items-start space-x-4 p-6 rounded-2xl bg-plum-light/30 border border-dustyPink/15">
-              <div className="w-12 h-12 rounded-2xl bg-mauve/30 border border-dustyPink/40 flex items-center justify-center flex-shrink-0">
+            <div className="flex items-start space-x-4 p-6 rounded-2xl bg-plum-light/25 border border-dustyPink/20">
+              <div className="w-12 h-12 rounded-2xl bg-mauve/25 border border-dustyPink/40 flex items-center justify-center flex-shrink-0">
                 <Download className="w-6 h-6 text-dustyPink" />
               </div>
               <div>
                 <h3 className="font-playfair text-lg font-bold text-cream mb-1">
                   3. Export High-Res PNG
                 </h3>
-                <p className="text-xs text-cream/70 font-light leading-relaxed">
+                <p className="text-xs text-cream/75 font-light leading-relaxed">
                   Download crisp 1080&times;1920 images ready to post straight to Instagram Stories without watermarks.
                 </p>
               </div>
@@ -125,7 +127,7 @@ export default function HomePage() {
       </section>
 
       {/* Minimal Footer */}
-      <footer className="bg-plum-dark text-cream/80 py-12 px-4 border-t border-dustyPink/20 text-center">
+      <footer className="relative z-10 bg-plum-dark/90 text-cream/80 py-12 px-4 border-t border-dustyPink/25 text-center">
         <div className="max-w-7xl mx-auto flex flex-col items-center justify-between gap-6 sm:flex-row">
           <div className="flex items-center space-x-2">
             <Sparkles className="w-5 h-5 text-dustyPink" />

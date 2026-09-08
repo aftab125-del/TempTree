@@ -4,13 +4,17 @@
 
 :root {
   /* TempTree Brand Palette */
-  --color-plum: #601D49;
-  --color-mauve: #BD5579;
-  --color-dusty-pink: #EA9D9D;
-  --color-cream: #FFEBB8;
+  --color-plum: #4A4A4A;        /* Charcoal (darkest tone, primary text, high-contrast) */
+  --color-charcoal: #4A4A4A;
+  --color-mauve: #E2B4BD;       /* Dusty Mauve (primary accent, buttons, active states, tags) */
+  --color-dusty-mauve: #E2B4BD;
+  --color-dusty-pink: #F7D6D0;  /* Peach Pink (soft accent, hover states) */
+  --color-peach-pink: #F7D6D0;
+  --color-cream: #FFF5F5;       /* Blush White (lightest tone, main background base) */
+  --color-blush-white: #FFF5F5;
 
-  --foreground-rgb: 96, 29, 73;
-  --background-rgb: 255, 235, 184;
+  --foreground-rgb: 74, 74, 74;
+  --background-rgb: 255, 245, 245;
 }
 
 @layer base {
@@ -51,31 +55,31 @@
 }
 
 .text-gradient-sakura {
-  background: linear-gradient(135deg, #601D49 0%, #BD5579 50%, #EA9D9D 100%);
+  background: linear-gradient(135deg, #4A4A4A 0%, #E2B4BD 50%, #F7D6D0 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 }
 
 .text-gradient-cream {
-  background: linear-gradient(135deg, #FFEBB8 0%, #EA9D9D 100%);
+  background: linear-gradient(135deg, #FFF5F5 0%, #F7D6D0 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 }
 
 .bg-glass {
-  background: rgba(255, 235, 184, 0.85);
+  background: rgba(255, 245, 245, 0.85);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
 }
 
 .bg-glass-dark {
-  background: rgba(96, 29, 73, 0.85);
+  background: rgba(74, 74, 74, 0.85);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
 }
 
 .border-subtle {
-  border-color: rgba(189, 85, 121, 0.25);
+  border-color: rgba(226, 180, 189, 0.35);
 }
 
 /* Custom aesthetic scrollbar */

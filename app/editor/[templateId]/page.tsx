@@ -42,7 +42,7 @@ export default function EditorPage() {
   const [isExporting, setIsExporting] = useState<boolean>(false);
   const [exportSuccess, setExportSuccess] = useState<boolean>(false);
   const [selectedBgColor, setSelectedBgColor] = useState<string>(
-    initialTemplate.layoutJson.backgroundColor || "#601D49"
+    initialTemplate.layoutJson.backgroundColor || "#4A4A4A"
   );
 
   // Hidden file input ref for image uploads
@@ -98,14 +98,14 @@ export default function EditorPage() {
   };
 
   // Add new aesthetic text element
-  const handleAddText = (style: "serif" | "sans" | "tagline") => {
+  const handleAddText = async (style: "serif" | "sans" | "tagline") => {
     if (!fabricCanvas) return;
-    const { fabric } = require("fabric");
+    const { fabric } = await import("fabric");
 
     let textContent = "New Story Heading";
     let fontFamily = "Playfair Display, serif";
     let fontSize = 64;
-    let fill = "#FFEBB8";
+    let fill = "#FFF5F5";
 
     if (style === "sans") {
       textContent = "Add your story quote or subtext here...";
@@ -115,7 +115,7 @@ export default function EditorPage() {
       textContent = "• DAILY AESTHETIC •";
       fontFamily = "Poppins, sans-serif";
       fontSize = 24;
-      fill = "#EA9D9D";
+      fill = "#F7D6D0";
     }
 
     const textObj = new fabric.Textbox(textContent, {
@@ -128,11 +128,11 @@ export default function EditorPage() {
       fill: fill,
       textAlign: "center",
       width: 700,
-      cornerColor: "#BD5579",
+      cornerColor: "#E2B4BD",
       cornerStyle: "circle",
       cornerSize: 24,
       transparentCorners: false,
-      borderColor: "#EA9D9D",
+      borderColor: "#F7D6D0",
       padding: 12,
     });
 
@@ -156,11 +156,11 @@ export default function EditorPage() {
     if (!file || !fabricCanvas) return;
 
     const reader = new FileReader();
-    reader.onload = (event) => {
+    reader.onload = async (event) => {
       const dataUrl = event.target?.result as string;
       if (!dataUrl) return;
 
-      const { fabric } = require("fabric");
+      const { fabric } = await import("fabric");
 
       // If an image is currently selected, replace its source while preserving position and scale
       if (activeObject && activeObject.type === "image") {
@@ -178,11 +178,11 @@ export default function EditorPage() {
             scaleX: currentScaleX,
             scaleY: currentScaleY,
             angle: currentAngle,
-            cornerColor: "#BD5579",
+            cornerColor: "#E2B4BD",
             cornerStyle: "circle",
             cornerSize: 24,
             transparentCorners: false,
-            borderColor: "#EA9D9D",
+            borderColor: "#F7D6D0",
           });
 
           fabricCanvas.remove(activeObject);
@@ -205,11 +205,11 @@ export default function EditorPage() {
             originY: "center",
             scaleX: scale,
             scaleY: scale,
-            cornerColor: "#BD5579",
+            cornerColor: "#E2B4BD",
             cornerStyle: "circle",
             cornerSize: 24,
             transparentCorners: false,
-            borderColor: "#EA9D9D",
+            borderColor: "#F7D6D0",
           });
 
           fabricCanvas.add(newImg);
@@ -284,11 +284,11 @@ export default function EditorPage() {
   };
 
   const brandSwatches = [
-    { name: "Deep Plum", hex: "#601D49" },
-    { name: "Mauve", hex: "#BD5579" },
-    { name: "Dusty Pink", hex: "#EA9D9D" },
-    { name: "Cream", hex: "#FFEBB8" },
-    { name: "Midnight Black", hex: "#140713" },
+    { name: "Charcoal", hex: "#4A4A4A" },
+    { name: "Dusty Mauve", hex: "#E2B4BD" },
+    { name: "Peach Pink", hex: "#F7D6D0" },
+    { name: "Blush White", hex: "#FFF5F5" },
+    { name: "Midnight", hex: "#1F1F1F" },
     { name: "Pure White", hex: "#FFFFFF" },
   ];
 
@@ -375,9 +375,9 @@ export default function EditorPage() {
       {/* ------------------------------------------------------------- */}
       <div className="flex-grow flex flex-col md:flex-row overflow-hidden relative">
         {/* Left / Center Viewport Area: Interactive Canvas */}
-        <div className="flex-grow flex items-center justify-center p-4 sm:p-6 overflow-auto bg-gradient-to-br from-plum-dark via-plum to-[#360e28] relative">
+        <div className="flex-grow flex items-center justify-center p-4 sm:p-6 overflow-auto bg-gradient-to-br from-plum-dark via-plum to-[#2A2A2A] relative">
           {/* Subtle grid pattern background */}
-          <div className="absolute inset-0 opacity-10 bg-[radial-gradient(#FFEBB8_1px,transparent_1px)] [background-size:24px_24px] pointer-events-none" />
+          <div className="absolute inset-0 opacity-10 bg-[radial-gradient(#FFF5F5_1px,transparent_1px)] [background-size:24px_24px] pointer-events-none" />
 
           {/* Interactive Fabric.js Canvas */}
           <div className="relative z-10 transition-transform duration-200">
@@ -509,7 +509,7 @@ export default function EditorPage() {
 
                     {/* Color Swatches for Text */}
                     <div className="flex items-center gap-1.5">
-                      {["#FFEBB8", "#EA9D9D", "#BD5579", "#601D49", "#FFFFFF"].map((col) => (
+                      {["#FFF5F5", "#F7D6D0", "#E2B4BD", "#4A4A4A", "#FFFFFF"].map((col) => (
                         <button
                           key={col}
                           onClick={() => updateActiveTextProp("fill", col)}
@@ -599,7 +599,7 @@ export default function EditorPage() {
                   >
                     <span
                       className={`text-[10px] ${
-                        swatch.hex === "#FFEBB8" || swatch.hex === "#FFFFFF"
+                        swatch.hex === "#FFF5F5" || swatch.hex === "#F7D6D0" || swatch.hex === "#E2B4BD" || swatch.hex === "#FFFFFF"
                           ? "text-plum font-semibold"
                           : "text-cream"
                       }`}

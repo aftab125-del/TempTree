@@ -60,7 +60,7 @@ export default function TemplateCanvas({
         canvasInstance = new fabric.Canvas(canvasElRef.current, {
           width: displayWidth,
           height: displayHeight,
-          backgroundColor: layout.backgroundColor || "#601D49",
+          backgroundColor: layout.backgroundColor || "#4A4A4A",
           selection: interactive,
           preserveObjectStacking: true,
           renderOnAddRemove: true,
@@ -111,11 +111,11 @@ export default function TemplateCanvas({
                 selectable: interactive,
                 hasControls: interactive,
                 hasBorders: interactive,
-                cornerColor: "#BD5579",
+                cornerColor: "#E2B4BD",
                 cornerStyle: "circle",
                 cornerSize: 24,
                 transparentCorners: false,
-                borderColor: "#EA9D9D",
+                borderColor: "#F7D6D0",
                 padding: 12,
               });
 
@@ -152,11 +152,11 @@ export default function TemplateCanvas({
                     selectable: interactive,
                     hasControls: interactive,
                     hasBorders: interactive,
-                    cornerColor: "#BD5579",
+                    cornerColor: "#E2B4BD",
                     cornerStyle: "circle",
                     cornerSize: 24,
                     transparentCorners: false,
-                    borderColor: "#EA9D9D",
+                    borderColor: "#F7D6D0",
                   });
 
                   if (el.stroke) {
@@ -191,11 +191,11 @@ export default function TemplateCanvas({
                 angle: el.angle || 0,
                 selectable: interactive,
                 hasControls: interactive,
-                cornerColor: "#BD5579",
+                cornerColor: "#E2B4BD",
                 cornerStyle: "circle",
                 cornerSize: 24,
                 transparentCorners: false,
-                borderColor: "#EA9D9D",
+                borderColor: "#F7D6D0",
               });
 
               (rectObj as any).elementId = el.id;
@@ -216,11 +216,11 @@ export default function TemplateCanvas({
                 angle: el.angle || 0,
                 selectable: interactive,
                 hasControls: interactive,
-                cornerColor: "#BD5579",
+                cornerColor: "#E2B4BD",
                 cornerStyle: "circle",
                 cornerSize: 24,
                 transparentCorners: false,
-                borderColor: "#EA9D9D",
+                borderColor: "#F7D6D0",
               });
 
               (circleObj as any).elementId = el.id;

@@ -10,10 +10,10 @@ Sourced from the reference sakura palette (Pinterest board):
 
 | Name | Hex | RGB | Usage |
 |---|---|---|---|
-| Deep Plum | `#601D49` | 96, 29, 73 | Darkest tone — hero background depth, headers on light sections |
-| Mauve | `#BD5579` | 189, 85, 121 | Primary accent — buttons, active states, category tags |
-| Dusty Pink | `#EA9D9D` | 234, 157, 157 | Secondary accent — hover states, soft highlights |
-| Cream | `#FFEBB8` | 255, 235, 184 | Background base for gallery/editor sections, light text on dark |
+| Charcoal | `#4A4A4A` | 74, 74, 74 | Darkest tone — primary text, high-contrast elements, UI chrome depth |
+| Dusty Mauve | `#E2B4BD` | 226, 180, 189 | Primary accent — buttons, active states, category tags |
+| Peach Pink | `#F7D6D0` | 247, 214, 208 | Soft accent — hover states, soft highlights |
+| Blush White | `#FFF5F5` | 255, 245, 245 | Lightest tone — main background base for gallery/editor, light elements |
 
 Gradient direction: plum → mauve → dusty pink → cream mirrors the hero's scroll journey (dark/moody at top of scroll, light/soft by the time the user reaches the gallery).
 

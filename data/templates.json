@@ -5,19 +5,19 @@
     "category": "Dreamy",
     "description": "Soft gradient blooms with glowing serif typography and delicate framing.",
     "tags": ["Aesthetic", "Soft", "Sakura", "Romantic", "Quote"],
-    "accentColor": "#BD5579",
+    "accentColor": "#E2B4BD",
     "thumbnailUrl": "/previews/dreamy-sakura-haze.png",
     "layoutJson": {
       "width": 1080,
       "height": 1920,
-      "backgroundColor": "#601D49",
+      "backgroundColor": "#4A4A4A",
       "backgroundGradient": {
         "type": "linear",
         "angle": 180,
         "colors": [
-          { "offset": 0, "color": "#601D49" },
-          { "offset": 0.5, "color": "#BD5579" },
-          { "offset": 1, "color": "#FFEBB8" }
+          { "offset": 0, "color": "#4A4A4A" },
+          { "offset": 0.5, "color": "#E2B4BD" },
+          { "offset": 1, "color": "#FFF5F5" }
         ]
       },
       "elements": [
@@ -29,7 +29,7 @@
           "width": 960,
           "height": 1760,
           "fill": "transparent",
-          "stroke": "#FFEBB8",
+          "stroke": "#FFF5F5",
           "strokeWidth": 3,
           "rx": 24,
           "ry": 24,
@@ -44,7 +44,7 @@
           "fontFamily": "Poppins",
           "fontSize": 28,
           "fontWeight": "600",
-          "fill": "#FFEBB8",
+          "fill": "#FFF5F5",
           "textAlign": "center",
           "letterSpacing": 6
         },
@@ -58,7 +58,7 @@
           "fontSize": 78,
           "fontWeight": "700",
           "fontStyle": "italic",
-          "fill": "#FFEBB8",
+          "fill": "#FFF5F5",
           "textAlign": "center"
         },
         {
@@ -71,7 +71,7 @@
           "src": "https://images.unsplash.com/photo-1522383225653-ed111181a951?w=1000&auto=format&fit=crop&q=80",
           "placeholderLabel": "Tap to replace photo",
           "isPlaceholder": true,
-          "stroke": "#FFEBB8",
+          "stroke": "#FFF5F5",
           "strokeWidth": 4,
           "cornerRadius": 16
         },
@@ -85,7 +85,7 @@
           "fontSize": 42,
           "fontWeight": "400",
           "fontStyle": "italic",
-          "fill": "#601D49",
+          "fill": "#4A4A4A",
           "textAlign": "center"
         },
         {
@@ -97,7 +97,7 @@
           "fontFamily": "Poppins",
           "fontSize": 24,
           "fontWeight": "500",
-          "fill": "#601D49",
+          "fill": "#4A4A4A",
           "textAlign": "center",
           "letterSpacing": 4
         }
@@ -110,7 +110,7 @@
     "category": "Y2K",
     "description": "High-energy early 2000s cyber aesthetic with bold chrome accents and starry vibes.",
     "tags": ["Y2K", "Cyber", "2000s", "Glow", "Chrome"],
-    "accentColor": "#BD5579",
+    "accentColor": "#E2B4BD",
     "thumbnailUrl": "/previews/y2k-cyber-sparkle.png",
     "layoutJson": {
       "width": 1080,
@@ -124,8 +124,8 @@
           "top": 200,
           "width": 880,
           "height": 1520,
-          "fill": "#601D49",
-          "stroke": "#EA9D9D",
+          "fill": "#4A4A4A",
+          "stroke": "#F7D6D0",
           "strokeWidth": 6,
           "rx": 30,
           "ry": 30,
@@ -138,7 +138,7 @@
           "top": 280,
           "width": 420,
           "height": 64,
-          "fill": "#EA9D9D",
+          "fill": "#F7D6D0",
           "rx": 32,
           "ry": 32
         },
@@ -151,7 +151,7 @@
           "fontFamily": "Poppins",
           "fontSize": 26,
           "fontWeight": "800",
-          "fill": "#601D49",
+          "fill": "#4A4A4A",
           "textAlign": "center"
         },
         {
@@ -163,7 +163,7 @@
           "fontFamily": "Playfair Display",
           "fontSize": 92,
           "fontWeight": "900",
-          "fill": "#FFEBB8",
+          "fill": "#FFF5F5",
           "textAlign": "center",
           "letterSpacing": 8
         },
@@ -177,7 +177,7 @@
           "src": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=1000&auto=format&fit=crop&q=80",
           "placeholderLabel": "Upload Selfie or Outfit",
           "isPlaceholder": true,
-          "stroke": "#FFEBB8",
+          "stroke": "#FFF5F5",
           "strokeWidth": 6,
           "cornerRadius": 24
         },
@@ -190,7 +190,7 @@
           "fontFamily": "Poppins",
           "fontSize": 48,
           "fontWeight": "700",
-          "fill": "#FFEBB8",
+          "fill": "#FFF5F5",
           "textAlign": "left"
         },
         {
@@ -202,7 +202,7 @@
           "fontFamily": "Poppins",
           "fontSize": 48,
           "fontWeight": "700",
-          "fill": "#EA9D9D",
+          "fill": "#F7D6D0",
           "textAlign": "right"
         },
         {
@@ -214,7 +214,7 @@
           "fontFamily": "Poppins",
           "fontSize": 32,
           "fontWeight": "700",
-          "fill": "#FFEBB8",
+          "fill": "#FFF5F5",
           "textAlign": "center",
           "letterSpacing": 3
         },
@@ -227,7 +227,7 @@
           "fontFamily": "Poppins",
           "fontSize": 24,
           "fontWeight": "500",
-          "fill": "#EA9D9D",
+          "fill": "#F7D6D0",
           "textAlign": "center",
           "letterSpacing": 4
         }
@@ -240,12 +240,12 @@
     "category": "Minimal",
     "description": "Sophisticated white space with refined typography and understated elegance.",
     "tags": ["Minimal", "Clean", "Editorial", "Vogue", "Modern"],
-    "accentColor": "#601D49",
+    "accentColor": "#4A4A4A",
     "thumbnailUrl": "/previews/minimal-studio-editorial.png",
     "layoutJson": {
       "width": 1080,
       "height": 1920,
-      "backgroundColor": "#FFEBB8",
+      "backgroundColor": "#FFF5F5",
       "elements": [
         {
           "id": "sub-header",
@@ -256,7 +256,7 @@
           "fontFamily": "Poppins",
           "fontSize": 24,
           "fontWeight": "500",
-          "fill": "#601D49",
+          "fill": "#4A4A4A",
           "textAlign": "left",
           "letterSpacing": 5
         },
@@ -269,7 +269,7 @@
           "fontFamily": "Playfair Display",
           "fontSize": 86,
           "fontWeight": "600",
-          "fill": "#601D49",
+          "fill": "#4A4A4A",
           "textAlign": "left"
         },
         {
@@ -279,7 +279,7 @@
           "top": 370,
           "width": 800,
           "height": 2,
-          "fill": "#BD5579",
+          "fill": "#E2B4BD",
           "opacity": 0.5
         },
         {
@@ -292,7 +292,7 @@
           "src": "https://images.unsplash.com/photo-1509631179647-0177331693ae?w=1000&auto=format&fit=crop&q=80",
           "placeholderLabel": "Add Editorial Image",
           "isPlaceholder": true,
-          "stroke": "#601D49",
+          "stroke": "#4A4A4A",
           "strokeWidth": 1
         },
         {
@@ -305,7 +305,7 @@
           "fontSize": 36,
           "fontWeight": "400",
           "fontStyle": "italic",
-          "fill": "#601D49",
+          "fill": "#4A4A4A",
           "textAlign": "left"
         },
         {
@@ -317,7 +317,7 @@
           "fontFamily": "Poppins",
           "fontSize": 22,
           "fontWeight": "600",
-          "fill": "#BD5579",
+          "fill": "#E2B4BD",
           "textAlign": "left",
           "letterSpacing": 6
         }
@@ -330,12 +330,12 @@
     "category": "Vintage",
     "description": "Nostalgic Polaroid film frame with warm sepia tones and vintage typewriter dates.",
     "tags": ["Vintage", "Retro", "Polaroid", "Film", "Nostalgia"],
-    "accentColor": "#601D49",
+    "accentColor": "#4A4A4A",
     "thumbnailUrl": "/previews/vintage-polaroid-1970.png",
     "layoutJson": {
       "width": 1080,
       "height": 1920,
-      "backgroundColor": "#601D49",
+      "backgroundColor": "#4A4A4A",
       "elements": [
         {
           "id": "polaroid-white-frame",
@@ -344,7 +344,7 @@
           "top": 240,
           "width": 840,
           "height": 1180,
-          "fill": "#FFEBB8",
+          "fill": "#FFF5F5",
           "rx": 8,
           "ry": 8
         },
@@ -358,7 +358,7 @@
           "src": "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=1000&auto=format&fit=crop&q=80",
           "placeholderLabel": "Add Polaroid Snap",
           "isPlaceholder": true,
-          "stroke": "#601D49",
+          "stroke": "#4A4A4A",
           "strokeWidth": 1
         },
         {
@@ -371,7 +371,7 @@
           "fontSize": 44,
           "fontWeight": "600",
           "fontStyle": "italic",
-          "fill": "#601D49",
+          "fill": "#4A4A4A",
           "textAlign": "center"
         },
         {
@@ -383,7 +383,7 @@
           "fontFamily": "Poppins",
           "fontSize": 24,
           "fontWeight": "600",
-          "fill": "#BD5579",
+          "fill": "#E2B4BD",
           "textAlign": "center",
           "letterSpacing": 5
         },
@@ -396,7 +396,7 @@
           "fontFamily": "Playfair Display",
           "fontSize": 52,
           "fontWeight": "700",
-          "fill": "#EA9D9D",
+          "fill": "#F7D6D0",
           "textAlign": "center"
         },
         {
@@ -408,7 +408,7 @@
           "fontFamily": "Poppins",
           "fontSize": 24,
           "fontWeight": "400",
-          "fill": "#FFEBB8",
+          "fill": "#FFF5F5",
           "textAlign": "center",
           "letterSpacing": 4
         }
@@ -421,12 +421,12 @@
     "category": "Bold",
     "description": "Striking typography, geometric color blocks, and high-impact visual contrast.",
     "tags": ["Bold", "Streetwear", "Fashion", "Graphic", "Modern"],
-    "accentColor": "#EA9D9D",
+    "accentColor": "#F7D6D0",
     "thumbnailUrl": "/previews/bold-vogue-streetwear.png",
     "layoutJson": {
       "width": 1080,
       "height": 1920,
-      "backgroundColor": "#601D49",
+      "backgroundColor": "#4A4A4A",
       "elements": [
         {
           "id": "top-bar",
@@ -435,7 +435,7 @@
           "top": 0,
           "width": 1080,
           "height": 180,
-          "fill": "#BD5579"
+          "fill": "#E2B4BD"
         },
         {
           "id": "top-bar-text",
@@ -446,7 +446,7 @@
           "fontFamily": "Poppins",
           "fontSize": 28,
           "fontWeight": "800",
-          "fill": "#FFEBB8",
+          "fill": "#FFF5F5",
           "textAlign": "center",
           "letterSpacing": 6
         },
@@ -459,7 +459,7 @@
           "fontFamily": "Playfair Display",
           "fontSize": 110,
           "fontWeight": "900",
-          "fill": "#FFEBB8",
+          "fill": "#FFF5F5",
           "textAlign": "center",
           "letterSpacing": 4
         },
@@ -473,7 +473,7 @@
           "src": "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=1000&auto=format&fit=crop&q=80",
           "placeholderLabel": "Add Streetwear Photo",
           "isPlaceholder": true,
-          "stroke": "#FFEBB8",
+          "stroke": "#FFF5F5",
           "strokeWidth": 6
         },
         {
@@ -483,7 +483,7 @@
           "top": 1480,
           "width": 800,
           "height": 180,
-          "fill": "#EA9D9D",
+          "fill": "#F7D6D0",
           "rx": 16,
           "ry": 16
         },
@@ -496,7 +496,7 @@
           "fontFamily": "Poppins",
           "fontSize": 38,
           "fontWeight": "900",
-          "fill": "#601D49",
+          "fill": "#4A4A4A",
           "textAlign": "center",
           "letterSpacing": 4
         },
@@ -509,7 +509,7 @@
           "fontFamily": "Poppins",
           "fontSize": 22,
           "fontWeight": "600",
-          "fill": "#601D49",
+          "fill": "#4A4A4A",
           "textAlign": "center",
           "letterSpacing": 3
         }
@@ -522,19 +522,19 @@
     "category": "Dreamy",
     "description": "Warm sunset tones with glowing soft highlights and romantic poetry typography.",
     "tags": ["Dreamy", "Golden Hour", "Sunset", "Glow", "Warm"],
-    "accentColor": "#EA9D9D",
+    "accentColor": "#F7D6D0",
     "thumbnailUrl": "/previews/dreamy-golden-hour.png",
     "layoutJson": {
       "width": 1080,
       "height": 1920,
-      "backgroundColor": "#EA9D9D",
+      "backgroundColor": "#F7D6D0",
       "backgroundGradient": {
         "type": "linear",
         "angle": 180,
         "colors": [
-          { "offset": 0, "color": "#BD5579" },
-          { "offset": 0.6, "color": "#EA9D9D" },
-          { "offset": 1, "color": "#FFEBB8" }
+          { "offset": 0, "color": "#E2B4BD" },
+          { "offset": 0.6, "color": "#F7D6D0" },
+          { "offset": 1, "color": "#FFF5F5" }
         ]
       },
       "elements": [
@@ -544,7 +544,7 @@
           "left": 540,
           "top": 360,
           "radius": 260,
-          "fill": "#FFEBB8",
+          "fill": "#FFF5F5",
           "opacity": 0.4
         },
         {
@@ -556,7 +556,7 @@
           "fontFamily": "Poppins",
           "fontSize": 26,
           "fontWeight": "600",
-          "fill": "#601D49",
+          "fill": "#4A4A4A",
           "textAlign": "center",
           "letterSpacing": 5
         },
@@ -570,7 +570,7 @@
           "fontSize": 90,
           "fontWeight": "700",
           "fontStyle": "italic",
-          "fill": "#601D49",
+          "fill": "#4A4A4A",
           "textAlign": "center"
         },
         {
@@ -583,7 +583,7 @@
           "src": "https://images.unsplash.com/photo-1518895949257-7621c3c786d7?w=1000&auto=format&fit=crop&q=80",
           "placeholderLabel": "Add Sunset Portrait",
           "isPlaceholder": true,
-          "stroke": "#FFEBB8",
+          "stroke": "#FFF5F5",
           "strokeWidth": 6,
           "cornerRadius": 380
         },
@@ -597,7 +597,7 @@
           "fontSize": 44,
           "fontWeight": "600",
           "fontStyle": "italic",
-          "fill": "#601D49",
+          "fill": "#4A4A4A",
           "textAlign": "center"
         },
         {
@@ -609,7 +609,7 @@
           "fontFamily": "Poppins",
           "fontSize": 24,
           "fontWeight": "600",
-          "fill": "#601D49",
+          "fill": "#4A4A4A",
           "textAlign": "center",
           "letterSpacing": 4
         }

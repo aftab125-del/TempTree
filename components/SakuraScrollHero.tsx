@@ -7,24 +7,15 @@ import { ArrowDown, Sparkles } from "lucide-react";
 /**
  * SakuraScrollHero Component
  * -------------------------------------------------------------
- * This component orchestrates an interactive 300-frame video scrub
- * rendered onto an HTML5 <canvas> element synchronized with user scrolling.
+ * Orchestrates an interactive 300-frame video scrub rendered onto an HTML5 <canvas>.
  *
- * How it works (for beginners following along):
- * 1. Preloading: Instead of requesting 300 frames on-the-fly, we load all
- *    300 PNG images into JavaScript Image() objects in memory on mount.
- *    A progress indicator (0% to 100%) keeps the user informed.
- * 2. Canvas Sizing & High-DPI: We scale the canvas by `window.devicePixelRatio`
- *    so graphics look razor-sharp on Retina / 4K displays.
- * 3. Throttled Scroll Tracking: Scroll events fire dozens of times per second.
- *    Using `requestAnimationFrame` ensures we only compute and draw when
- *    the browser is ready for the next screen refresh (typically 60Hz or 120Hz).
- * 4. Frame Mapping: `scrollProgress` (0.0 to 1.0) maps linearly to index 0..299:
- *    `frameIndex = Math.floor(scrollProgress * 299)`.
- * 5. Ghosting Prevention: `ctx.clearRect(0, 0, width, height)` cleans the frame
- *    buffer before each `drawImage` call.
- * 6. Aspect-Ratio Cover: We calculate `offsetX` / `offsetY` so the animation
- *    fills the screen like CSS `object-fit: cover` regardless of viewport aspect ratio.
+ * HOMEPAGE BACKGROUND PERSISTENCE:
+ * - 0% to 100% (within 300vh): canvas scrubs through frames 1 to 300 synchronized with scroll.
+ * - At 100% (frame 300 - fully bloomed tree): stops fading out, freezes on frame 300, and stays
+ *   pinned as a position: fixed full-viewport background for the rest of the homepage.
+ * - Performance optimization: once scroll reaches 100%, canvas redraw calculations halt.
+ * - Contrast safety: a fixed bg-black/25 overlay sits between the tree background and UI.
+ * - Scoped strictly to the homepage (not present on /gallery or /editor routes).
  */
 
 const TOTAL_FRAMES = 300;
@@ -69,6 +60,12 @@ export default function SakuraScrollHero() {
         const pct = Math.floor((loadedCount / TOTAL_FRAMES) * 100);
         setLoadProgress(pct);
 
+        // Draw frame 0 as soon as the first frame is ready
+        if (i === 1) {
+          handleResize();
+          drawFrame(0);
+        }
+
         if (loadedCount >= TOTAL_FRAMES) {
           setIsLoaded(true);
         }
@@ -96,7 +93,18 @@ export default function SakuraScrollHero() {
     if (!ctx) return;
 
     const clampedIndex = Math.max(0, Math.min(TOTAL_FRAMES - 1, frameIndex));
-    const img = imagesRef.current[clampedIndex];
+    let img = imagesRef.current[clampedIndex];
+
+    // If requested frame isn't loaded yet, fall back to closest loaded frame below it
+    if (!img || !img.complete || img.naturalWidth === 0) {
+      for (let j = clampedIndex - 1; j >= 0; j--) {
+        const candidate = imagesRef.current[j];
+        if (candidate && candidate.complete && candidate.naturalWidth > 0) {
+          img = candidate;
+          break;
+        }
+      }
+    }
 
     if (!img || !img.complete || img.naturalWidth === 0) return;
 
@@ -179,6 +187,17 @@ export default function SakuraScrollHero() {
 
       setScrollProgress(progress);
 
+      // PERFORMANCE OPTIMIZATION:
+      // When scroll reaches 100% (progress >= 1), ensure frame 300 is rendered once and freeze.
+      // Stop further canvas redraw loops while scrolled past the hero container.
+      if (progress >= 1) {
+        if (lastRenderedIndexRef.current !== TOTAL_FRAMES - 1) {
+          drawFrame(TOTAL_FRAMES - 1);
+        }
+        rafIdRef.current = null;
+        return;
+      }
+
       const targetFrame = Math.floor(progress * (TOTAL_FRAMES - 1));
       if (targetFrame !== lastRenderedIndexRef.current) {
         drawFrame(targetFrame);
@@ -219,23 +238,15 @@ export default function SakuraScrollHero() {
       : 0;
 
   // 2. Category Names: Active 35% to 65% (Fades in one at a time)
-  // We have 5 categories: Y2K (35-41%), Minimal (41-47%), Dreamy (47-53%), Vintage (53-59%), Bold (59-65%)
   const isCategorySectionActive = scrollProgress >= 0.32 && scrollProgress <= 0.70;
   const categoryProgress = Math.min(
     1,
     Math.max(0, (scrollProgress - 0.34) / (0.66 - 0.34))
   );
-  // Active category index: 0, 1, 2, 3, or 4
   const activeCategoryIndex = Math.min(
     CATEGORIES.length - 1,
     Math.floor(categoryProgress * CATEGORIES.length)
   );
-
-  // 3. Hero Canvas Fadeout: 90% to 100% transitions into gallery preview below
-  const heroOpacity =
-    scrollProgress >= 0.9
-      ? Math.max(0, 1 - (scrollProgress - 0.9) / 0.1)
-      : 1;
 
   const scrollToGallery = () => {
     const container = containerRef.current;
@@ -245,164 +256,174 @@ export default function SakuraScrollHero() {
   };
 
   return (
-    <div
-      ref={containerRef}
-      className="relative w-full h-[300vh] bg-plum selection:bg-mauve selection:text-cream"
-    >
-      {/* Pinned Viewport Container (Sticky 100vh) */}
-      <div
-        className="sticky top-0 w-full h-screen overflow-hidden flex items-center justify-center pointer-events-none"
-        style={{ opacity: heroOpacity, transition: "opacity 0.1s linear" }}
-      >
-        {/* Background Canvas */}
+    <>
+      {/* ------------------------------------------------------------------ */}
+      {/* FIXED POSITION BACKGROUND CANVAS (HOMEPAGE ONLY)                   */}
+      {/* Pinned full-viewport in front of body background (z-0), freezes on frame 300 */}
+      {/* ------------------------------------------------------------------ */}
+      <div className="fixed inset-0 w-full h-full overflow-hidden pointer-events-none z-0">
         <canvas
           ref={canvasRef}
-          className="absolute inset-0 w-full h-full object-cover block"
+          className="w-full h-full object-cover block"
         />
+      </div>
 
-        {/* Soft Vignette / Gradient Overlay for High Text Readability */}
-        <div className="absolute inset-0 bg-gradient-to-b from-plum/50 via-transparent to-plum/80 pointer-events-none" />
+      {/* ------------------------------------------------------------------ */}
+      {/* FIXED DARK OVERLAY (bg-black/25) FOR TEXT CONTRAST                 */}
+      {/* Positioned between tree image and UI (z-[1]), no other styling changed */}
+      {/* ------------------------------------------------------------------ */}
+      <div className="fixed inset-0 bg-black/25 pointer-events-none z-[1]" />
 
-        {/* ------------------------------------------------------------------ */}
-        {/* PRELOADER SCREEN (Shown while loading 300 frames) */}
-        {/* ------------------------------------------------------------------ */}
-        {!isLoaded && (
-          <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-plum text-cream px-6">
-            <div className="flex items-center space-x-3 mb-6 animate-pulse">
-              <Sparkles className="w-8 h-8 text-dustyPink" />
-              <h1 className="font-playfair text-4xl sm:text-5xl font-bold tracking-wider">
-                TempTree
-              </h1>
-            </div>
-
-            <p className="font-poppins text-sm uppercase tracking-widest text-dustyPink/80 mb-6 text-center">
-              Gathering sakura blossoms & frames...
-            </p>
-
-            {/* Progress bar */}
-            <div className="w-64 max-w-full h-2 bg-plum-dark/80 rounded-full overflow-hidden border border-dustyPink/30 p-0.5">
-              <div
-                className="h-full bg-gradient-to-r from-dustyPink via-mauve to-cream rounded-full transition-all duration-150 ease-out"
-                style={{ width: `${loadProgress}%` }}
-              />
-            </div>
-
-            <span className="font-poppins text-xs font-semibold text-cream mt-3">
-              {loadProgress}% loaded
-            </span>
-          </div>
-        )}
-
-        {/* ------------------------------------------------------------------ */}
-        {/* OVERLAY 1: Brand Wordmark + Tagline (0% - 10% scroll progress) */}
-        {/* ------------------------------------------------------------------ */}
-        <div
-          className="absolute inset-0 z-20 flex flex-col items-center justify-center text-center px-4 transition-all duration-300"
-          style={{
-            opacity: wordmarkOpacity,
-            transform: `translateY(${(1 - wordmarkOpacity) * -20}px)`,
-            pointerEvents: wordmarkOpacity > 0.1 ? "auto" : "none",
-          }}
-        >
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-plum/60 border border-dustyPink/40 backdrop-blur-md mb-4 shadow-lg shadow-plum/50">
-            <Sparkles className="w-4 h-4 text-dustyPink animate-pulse" />
-            <span className="text-xs uppercase tracking-[0.25em] text-cream font-medium">
-              Aesthetic Story Studio
-            </span>
+      {/* ------------------------------------------------------------------ */}
+      {/* PRELOADER SCREEN (Shown while loading 300 frames)                  */}
+      {/* ------------------------------------------------------------------ */}
+      {!isLoaded && (
+        <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-plum text-cream px-6">
+          <div className="flex items-center space-x-3 mb-6 animate-pulse">
+            <Sparkles className="w-8 h-8 text-dustyPink" />
+            <h1 className="font-playfair text-4xl sm:text-5xl font-bold tracking-wider">
+              TempTree
+            </h1>
           </div>
 
-          <h1 className="font-playfair text-6xl sm:text-8xl md:text-9xl font-extrabold text-cream tracking-tight drop-shadow-2xl">
-            TempTree
-          </h1>
-
-          <p className="font-poppins text-lg sm:text-2xl text-cream/90 font-light tracking-wide max-w-md mt-4 drop-shadow-md">
-            Find your aesthetic.
+          <p className="font-poppins text-sm uppercase tracking-widest text-dustyPink/90 mb-6 text-center">
+            Gathering sakura blossoms & frames...
           </p>
 
-          <p className="font-poppins text-xs uppercase tracking-[0.3em] text-dustyPink mt-2 font-medium">
-            Instagram Story Templates &middot; 1080 &times; 1920
-          </p>
-
-          {/* Scroll Prompt Button */}
-          <button
-            onClick={scrollToGallery}
-            className="mt-12 flex flex-col items-center gap-2 text-cream/80 hover:text-cream transition-colors duration-300 group cursor-pointer"
-            aria-label="Scroll to explore"
-          >
-            <span className="text-xs uppercase tracking-widest font-light">
-              Scroll to explore
-            </span>
-            <div className="w-8 h-8 rounded-full border border-cream/40 flex items-center justify-center group-hover:border-cream group-hover:bg-cream/10 transition-all duration-300">
-              <ArrowDown className="w-4 h-4 text-cream animate-bounce" />
-            </div>
-          </button>
-        </div>
-
-        {/* ------------------------------------------------------------------ */}
-        {/* OVERLAY 2: Category Names Reveal (35% - 65% scroll progress) */}
-        {/* ------------------------------------------------------------------ */}
-        <div
-          className="absolute inset-0 z-20 flex flex-col items-center justify-center text-center px-4 transition-all duration-300"
-          style={{
-            opacity: isCategorySectionActive ? 1 : 0,
-            pointerEvents: isCategorySectionActive ? "auto" : "none",
-          }}
-        >
-          <div className="max-w-xl flex flex-col items-center">
-            <span className="text-xs uppercase tracking-[0.3em] text-dustyPink font-semibold mb-3 px-3 py-1 rounded-full bg-plum/70 border border-dustyPink/30 backdrop-blur-md">
-              Curated Dimensions
-            </span>
-
-            <h2 className="font-playfair text-3xl sm:text-4xl text-cream/80 font-normal italic mb-6">
-              Every mood, distilled.
-            </h2>
-
-            {/* Category Names Highlighted One by One */}
-            <div className="flex flex-wrap items-center justify-center gap-3 sm:gap-5 my-2">
-              {CATEGORIES.map((cat, idx) => {
-                const isCurrent = idx === activeCategoryIndex;
-                return (
-                  <div
-                    key={cat}
-                    className={`transition-all duration-500 transform ${
-                      isCurrent
-                        ? "scale-125 bg-cream text-plum font-bold shadow-xl shadow-plum/60 border-2 border-cream ring-4 ring-mauve/40"
-                        : "scale-95 bg-plum/70 text-cream/60 border border-dustyPink/30 backdrop-blur-sm"
-                    } px-5 py-2.5 rounded-full text-sm sm:text-base tracking-wide`}
-                  >
-                    <span className="font-playfair">
-                      {isCurrent ? `✦ ${cat} ✦` : cat}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* Active Category Description Pill */}
-            <div className="mt-8 text-cream font-poppins text-xs sm:text-sm tracking-wide bg-plum/80 border border-dustyPink/30 px-6 py-2.5 rounded-full backdrop-blur-md shadow-lg max-w-md">
-              {activeCategoryIndex === 0 && "★ Y2K: Chrome stars, cyber nostalgia, and bold vibrant glow."}
-              {activeCategoryIndex === 1 && "◇ Minimal: Timeless editorial typography with serene white space."}
-              {activeCategoryIndex === 2 && "🌸 Dreamy: Ethereal sakura gradients, soft blush & glowing quotes."}
-              {activeCategoryIndex === 3 && "🎞 Vintage: Nostalgic Polaroid borders, 35mm film grain & retro dates."}
-              {activeCategoryIndex === 4 && "⚡ Bold: High-impact streetwear contrast & powerful headline blocks."}
-            </div>
+          {/* Progress bar */}
+          <div className="w-64 max-w-full h-2 bg-plum-dark/90 rounded-full overflow-hidden border border-dustyPink/40 p-0.5">
+            <div
+              className="h-full bg-gradient-to-r from-dustyPink via-mauve to-cream rounded-full transition-all duration-150 ease-out"
+              style={{ width: `${loadProgress}%` }}
+            />
           </div>
-        </div>
 
-        {/* ------------------------------------------------------------------ */}
-        {/* OVERLAY 3: Transition Hint (80% - 90% scroll progress) */}
-        {/* ------------------------------------------------------------------ */}
-        <div
-          className="absolute bottom-12 z-20 flex flex-col items-center text-center transition-all duration-300"
-          style={{
-            opacity: scrollProgress >= 0.78 && scrollProgress < 0.9 ? 1 : 0,
-          }}
-        >
-          <span className="text-xs uppercase tracking-[0.25em] text-cream bg-plum/80 border border-dustyPink/40 px-4 py-2 rounded-full backdrop-blur-md">
-            Scroll down to browse templates &darr;
+          <span className="font-poppins text-xs font-semibold text-cream mt-3">
+            {loadProgress}% loaded
           </span>
         </div>
+      )}
+
+      {/* ------------------------------------------------------------------ */}
+      {/* 300VH SCROLL TRACKER & TEXT OVERLAY CONTAINER                      */}
+      {/* ------------------------------------------------------------------ */}
+      <div
+        ref={containerRef}
+        className="relative z-10 w-full h-[300vh] selection:bg-mauve selection:text-cream pointer-events-none"
+      >
+        {/* Sticky 100vh Viewport Overlay Container */}
+        <div className="sticky top-0 w-full h-screen overflow-hidden flex items-center justify-center pointer-events-none">
+          {/* ---------------------------------------------------------------- */}
+          {/* OVERLAY 1: Brand Wordmark + Tagline (0% - 10% scroll progress)   */}
+          {/* ---------------------------------------------------------------- */}
+          <div
+            className="absolute inset-0 z-20 flex flex-col items-center justify-center text-center px-4 transition-all duration-300"
+            style={{
+              opacity: wordmarkOpacity,
+              transform: `translateY(${(1 - wordmarkOpacity) * -20}px)`,
+              pointerEvents: wordmarkOpacity > 0.1 ? "auto" : "none",
+            }}
+          >
+            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-plum/75 border border-dustyPink/40 backdrop-blur-md mb-4 shadow-lg shadow-plum/40">
+              <Sparkles className="w-4 h-4 text-dustyPink animate-pulse" />
+              <span className="text-xs uppercase tracking-[0.25em] text-cream font-medium">
+                Aesthetic Story Studio
+              </span>
+            </div>
+
+            <h1 className="font-playfair text-6xl sm:text-8xl md:text-9xl font-extrabold text-cream tracking-tight drop-shadow-2xl">
+              TempTree
+            </h1>
+
+            <p className="font-poppins text-lg sm:text-2xl text-cream/90 font-light tracking-wide max-w-md mt-4 drop-shadow-md">
+              Find your aesthetic.
+            </p>
+
+            <p className="font-poppins text-xs uppercase tracking-[0.3em] text-dustyPink mt-2 font-medium">
+              Instagram Story Templates &middot; 1080 &times; 1920
+            </p>
+
+            {/* Scroll Prompt Button */}
+            <button
+              onClick={scrollToGallery}
+              className="mt-12 flex flex-col items-center gap-2 text-cream/80 hover:text-cream transition-colors duration-300 group cursor-pointer"
+              aria-label="Scroll to explore"
+            >
+              <span className="text-xs uppercase tracking-widest font-light">
+                Scroll to explore
+              </span>
+              <div className="w-8 h-8 rounded-full border border-cream/40 flex items-center justify-center group-hover:border-cream group-hover:bg-cream/10 transition-all duration-300">
+                <ArrowDown className="w-4 h-4 text-cream animate-bounce" />
+              </div>
+            </button>
+          </div>
+
+          {/* ---------------------------------------------------------------- */}
+          {/* OVERLAY 2: Category Names Reveal (35% - 65% scroll progress)     */}
+          {/* ---------------------------------------------------------------- */}
+          <div
+            className="absolute inset-0 z-20 flex flex-col items-center justify-center text-center px-4 transition-all duration-300"
+            style={{
+              opacity: isCategorySectionActive ? 1 : 0,
+              pointerEvents: isCategorySectionActive ? "auto" : "none",
+            }}
+          >
+            <div className="max-w-xl flex flex-col items-center">
+              <span className="text-xs uppercase tracking-[0.3em] text-dustyPink font-semibold mb-3 px-3 py-1 rounded-full bg-plum/75 border border-dustyPink/40 backdrop-blur-md">
+                Curated Dimensions
+              </span>
+
+              <h2 className="font-playfair text-3xl sm:text-4xl text-cream/90 font-normal italic mb-6">
+                Every mood, distilled.
+              </h2>
+
+              {/* Category Names Highlighted One by One */}
+              <div className="flex flex-wrap items-center justify-center gap-3 sm:gap-5 my-2">
+                {CATEGORIES.map((cat, idx) => {
+                  const isCurrent = idx === activeCategoryIndex;
+                  return (
+                    <div
+                      key={cat}
+                      className={`transition-all duration-500 transform ${
+                        isCurrent
+                          ? "scale-125 bg-cream text-plum font-bold shadow-xl shadow-plum/40 border-2 border-cream ring-4 ring-mauve/50"
+                          : "scale-95 bg-plum/75 text-cream/70 border border-dustyPink/30 backdrop-blur-sm"
+                      } px-5 py-2.5 rounded-full text-sm sm:text-base tracking-wide`}
+                    >
+                      <span className="font-playfair">
+                        {isCurrent ? `✦ ${cat} ✦` : cat}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Active Category Description Pill */}
+              <div className="mt-8 text-cream font-poppins text-xs sm:text-sm tracking-wide bg-plum/85 border border-dustyPink/30 px-6 py-2.5 rounded-full backdrop-blur-md shadow-lg max-w-md">
+                {activeCategoryIndex === 0 && "★ Y2K: Chrome stars, cyber nostalgia, and bold vibrant glow."}
+                {activeCategoryIndex === 1 && "◇ Minimal: Timeless editorial typography with serene white space."}
+                {activeCategoryIndex === 2 && "🌸 Dreamy: Ethereal sakura gradients, soft blush & glowing quotes."}
+                {activeCategoryIndex === 3 && "🎞 Vintage: Nostalgic Polaroid borders, 35mm film grain & retro dates."}
+                {activeCategoryIndex === 4 && "⚡ Bold: High-impact streetwear contrast & powerful headline blocks."}
+              </div>
+            </div>
+          </div>
+
+          {/* ---------------------------------------------------------------- */}
+          {/* OVERLAY 3: Transition Hint (80% - 90% scroll progress)           */}
+          {/* ---------------------------------------------------------------- */}
+          <div
+            className="absolute bottom-12 z-20 flex flex-col items-center text-center transition-all duration-300"
+            style={{
+              opacity: scrollProgress >= 0.78 && scrollProgress < 0.9 ? 1 : 0,
+            }}
+          >
+            <span className="text-xs uppercase tracking-[0.25em] text-cream bg-plum/80 border border-dustyPink/40 px-4 py-2 rounded-full backdrop-blur-md">
+              Scroll down to browse templates &darr;
+            </span>
+          </div>
+        </div>
       </div>
-    </div>
+    </>
   );
 }
