@@ -2,21 +2,14 @@ import React from "react";
 import Link from "next/link";
 import Navbar from "@/components/Navbar";
 import SakuraScrollHero from "@/components/SakuraScrollHero";
-import TemplateCard from "@/components/TemplateCard";
-import ScrollAnimatedCardGrid from "@/components/ScrollAnimatedCardGrid";
-import templatesData from "@/data/templates.json";
-import { Template, CATEGORIES } from "@/types/template";
-import { Sparkles, ArrowRight, Grid, Wand2, Download, Upload } from "lucide-react";
+import { Sparkles, ArrowRight, Upload } from "lucide-react";
 import { Skiper31 } from "@/components/ui/skiper31";
 import HowItWorksStepper from "@/components/HowItWorksStepper";
 import ShowcaseReveal from "@/components/ShowcaseReveal";
 import FeaturesBento from "@/components/FeaturesBento";
+import StarterTemplates2DCanvas from "@/components/StarterTemplates2DCanvas";
 
 export default function HomePage() {
-  const templates: Template[] = templatesData as Template[];
-  // Featured preview selection (4 templates)
-  const previewTemplates = templates.slice(0, 4);
-
   return (
     <main className="min-h-screen text-cream selection:bg-mauve selection:text-plum flex flex-col relative">
       {/* Top Floating Navigation */}
@@ -65,18 +58,8 @@ export default function HomePage() {
             </div>
           </div>
 
-          {/* Starter Inspiration Header */}
-          <div className="mb-8">
-            <h3 className="font-playfair text-2xl font-bold text-cream">
-              Starter Inspiration
-            </h3>
-            <p className="text-xs text-cream/70 mt-1 font-light">
-              Try these pre-built sample templates directly in the editor, or upload your own frame design above.
-            </p>
-          </div>
-
-          {/* Template Cards Grid with Skiper-style 3D Fan-out & Scroll Glide */}
-          <ScrollAnimatedCardGrid templates={previewTemplates} />
+          {/* 2D Infinite Drag & Scroll Canvas (Skiper5 Pattern) */}
+          <StarterTemplates2DCanvas />
 
           {/* Animated 3D Perspective Stepper: How It Works */}
           <div className="mt-16 pt-8 border-t border-dustyPink/20">
