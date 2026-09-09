@@ -76,6 +76,7 @@ export default function TemplateCanvas({
           selection: false,
           preserveObjectStacking: true,
           renderOnAddRemove: true,
+          controlsAboveOverlay: false,
         });
 
         // Set zoom so internal coordinate space remains 1080x1920
@@ -139,45 +140,77 @@ export default function TemplateCanvas({
                 resolve(null);
               }
             } else if (el.type === "image") {
-              // Load image placeholder or user photo with error guards
-              fabric.Image.fromURL(
-                el.src,
-                (img: any, isError: boolean) => {
-                  if (!img || isError || typeof img.render !== "function") {
-                    resolve(null);
-                    return;
-                  }
-
-                  const targetWidth = el.width || 720;
-                  const targetHeight = el.height || 880;
-
-                  // Scale image to fit the container bounds
-                  const scaleX = targetWidth / (img.width || 1);
-                  const scaleY = targetHeight / (img.height || 1);
-                  const maxScale = Math.max(scaleX, scaleY);
-
-                  const isOverlay = el.id === "frame-cutout-overlay" || el.selectable === false;
-
-                  if (isOverlay) {
-                    img.set({
-                      left: el.left,
-                      top: el.top,
-                      scaleX: maxScale,
-                      scaleY: maxScale,
-                      opacity: el.opacity ?? 1,
-                      angle: el.angle || 0,
+              if (el.id === "frame-cutout-overlay") {
+                // Set decorative cutout frame directly as canvas overlayImage
+                // Fabric's _renderOverlay renders on top of all photo slots and active selections
+                fabric.Image.fromURL(
+                  el.src,
+                  (overlayImg: any, isError: boolean) => {
+                    if (!overlayImg || isError || !canvasInstance) {
+                      resolve(null);
+                      return;
+                    }
+                    const scaleX = nativeWidth / (overlayImg.width || nativeWidth);
+                    const scaleY = nativeHeight / (overlayImg.height || nativeHeight);
+                    overlayImg.set({
+                      left: 0,
+                      top: 0,
+                      originX: "left",
+                      originY: "top",
+                      scaleX: scaleX,
+                      scaleY: scaleY,
                       selectable: false,
                       evented: false,
                       hasControls: false,
                       hasBorders: false,
                       hoverCursor: "default",
                     });
-                  } else {
+                    (overlayImg as any).elementId = el.id;
+                    (overlayImg as any).elementType = "image";
+                    (overlayImg as any).isOverlay = true;
+
+                    canvasInstance.setOverlayImage(overlayImg, () => {
+                      if (canvasInstance && typeof canvasInstance.renderAll === "function") {
+                        canvasInstance.renderAll();
+                      }
+                      resolve(overlayImg);
+                    });
+                  },
+                  { crossOrigin: "anonymous" }
+                );
+              } else {
+                // Load image placeholder or user photo with bleed margin behind cutout
+                fabric.Image.fromURL(
+                  el.src,
+                  (img: any, isError: boolean) => {
+                    if (!img || isError || typeof img.render !== "function" || !canvasInstance) {
+                      resolve(null);
+                      return;
+                    }
+
+                    const bleed = 4;
+                    const baseW = el.width || 720;
+                    const baseH = el.height || 880;
+                    const targetWidth = baseW + bleed * 2;
+                    const targetHeight = baseH + bleed * 2;
+                    const targetLeft = (el.left || 0) - bleed;
+                    const targetTop = (el.top || 0) - bleed;
+
+                    // Scale image to fit the container bounds with cover fit
+                    const scaleX = targetWidth / (img.width || 1);
+                    const scaleY = targetHeight / (img.height || 1);
+                    const coverScale = Math.max(scaleX, scaleY);
+
+                    const renderedW = (img.width || 1) * coverScale;
+                    const renderedH = (img.height || 1) * coverScale;
+                    const centerOffsetX = (targetWidth - renderedW) / 2;
+                    const centerOffsetY = (targetHeight - renderedH) / 2;
+
                     img.set({
-                      left: el.left,
-                      top: el.top,
-                      scaleX: maxScale,
-                      scaleY: maxScale,
+                      left: targetLeft + centerOffsetX,
+                      top: targetTop + centerOffsetY,
+                      scaleX: coverScale,
+                      scaleY: coverScale,
                       opacity: el.opacity ?? 1,
                       angle: el.angle || 0,
                       selectable: interactive,
@@ -193,34 +226,30 @@ export default function TemplateCanvas({
                       lockScalingY: true,
                       hoverCursor: interactive ? "pointer" : "default",
                     });
-                  }
 
-                  if (el.stroke) {
-                    img.set({
-                      stroke: el.stroke,
-                      strokeWidth: el.strokeWidth || 2,
-                    });
-                  }
+                    if (el.stroke) {
+                      img.set({
+                        stroke: el.stroke,
+                        strokeWidth: el.strokeWidth || 2,
+                      });
+                    }
 
-                  (img as any).elementId = el.id;
-                  (img as any).elementType = "image";
-                  (img as any).placeholderLabel = el.placeholderLabel;
-                  (img as any).isPlaceholder = el.isPlaceholder;
-                  (img as any).targetWidth = targetWidth;
-                  (img as any).targetHeight = targetHeight;
-                  (img as any).aspectRatio = targetWidth / targetHeight;
-                  (img as any).originalLeft = el.left;
-                  (img as any).originalTop = el.top;
+                    (img as any).elementId = el.id;
+                    (img as any).elementType = "image";
+                    (img as any).placeholderLabel = el.placeholderLabel;
+                    (img as any).isPlaceholder = el.isPlaceholder;
+                    (img as any).targetWidth = baseW;
+                    (img as any).targetHeight = baseH;
+                    (img as any).aspectRatio = baseW / baseH;
+                    (img as any).originalLeft = el.left;
+                    (img as any).originalTop = el.top;
 
-                  if (img && typeof img.render === "function") {
                     canvasInstance.add(img);
                     resolve(img);
-                  } else {
-                    resolve(null);
-                  }
-                },
-                { crossOrigin: "anonymous" }
-              );
+                  },
+                  { crossOrigin: "anonymous" }
+                );
+              }
             } else if (el.type === "rect") {
               const rectObj = new fabric.Rect({
                 left: el.left,
@@ -288,13 +317,13 @@ export default function TemplateCanvas({
 
         await Promise.all(elementPromises);
 
-        // Ensure any decorative frame cutout overlay always stays above photos
+        // Fallback for non-overlay templates: ensure any overlay element stays above photos
         const canvasObjects = canvasInstance.getObjects();
-        const cutoutOverlay = canvasObjects.find(
-          (obj: any) => obj.elementId === "frame-cutout-overlay" || obj.isPlaceholder === false
+        const fallbackOverlay = canvasObjects.find(
+          (obj: any) => obj.elementId === "frame-cutout-overlay"
         );
-        if (cutoutOverlay && typeof canvasInstance.bringToFront === "function") {
-          canvasInstance.bringToFront(cutoutOverlay);
+        if (fallbackOverlay && typeof canvasInstance.bringToFront === "function") {
+          canvasInstance.bringToFront(fallbackOverlay);
         }
 
         if (canvasInstance && typeof canvasInstance.renderAll === "function") {

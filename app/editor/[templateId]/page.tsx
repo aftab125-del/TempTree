@@ -85,6 +85,9 @@ export default function EditorPage() {
     photoSlots.length > 0 ? photoSlots[0].id : null
   );
   const [slotThumbnails, setSlotThumbnails] = useState<{ [slotId: string]: string }>({});
+  // Master uncropped original photos cache to prevent destructive cropping
+  const [rawPhotos, setRawPhotos] = useState<{ [slotId: string]: string }>({});
+  const rawPhotosRef = useRef<{ [slotId: string]: string }>({});
 
   // Cropper Modal State
   const [cropperModal, setCropperModal] = useState<{
@@ -208,7 +211,14 @@ export default function EditorPage() {
     const originalSrc = originalElem?.src || slot.currentSrc;
     if (!originalSrc) return;
 
-    // Clear local custom thumbnail
+    // Clear local custom thumbnail and raw photo master
+    delete rawPhotosRef.current[slot.id];
+    setRawPhotos((prev) => {
+      const updated = { ...prev };
+      delete updated[slot.id];
+      return updated;
+    });
+
     setSlotThumbnails((prev) => {
       const updated = { ...prev };
       delete updated[slot.id];
@@ -243,7 +253,8 @@ export default function EditorPage() {
   };
 
   const handleAdjustCropForSlot = (slot: PhotoSlot) => {
-    const currentSrc = slotThumbnails[slot.id] || slot.currentSrc;
+    // Always use original master photo if available, preventing lossy crop-of-a-crop
+    const currentSrc = rawPhotosRef.current[slot.id] || rawPhotos[slot.id] || slotThumbnails[slot.id] || slot.currentSrc;
     if (!currentSrc) return;
     setCropperModal({
       isOpen: true,
@@ -280,7 +291,11 @@ export default function EditorPage() {
       const dataUrl = event.target?.result as string;
       if (!dataUrl) return;
 
-      // Open the cropper modal locked to the slot's exact proportions
+      // Save raw uncropped master photo
+      rawPhotosRef.current[targetSlot.id] = dataUrl;
+      setRawPhotos((prev) => ({ ...prev, [targetSlot.id]: dataUrl }));
+
+      // Open the cropper modal with full original image
       setCropperModal({
         isOpen: true,
         imageSrc: dataUrl,
@@ -306,14 +321,22 @@ export default function EditorPage() {
     const applyToFabric = () => {
       let activeTarget: any = existingObj;
 
+      // Provide slight bleed margin so photo sits snug behind cutout hole with zero gaps
+      const bleed = 4;
+      const targetW = slot.width + bleed * 2;
+      const targetH = slot.height + bleed * 2;
+      const targetLeft = slot.left - bleed;
+      const targetTop = slot.top - bleed;
+
+      const scaleX = targetW / (htmlImg.width || 1);
+      const scaleY = targetH / (htmlImg.height || 1);
+
       if (existingObj && typeof existingObj.setElement === "function") {
         // Fast, reliable in-place element swap without re-stacking
         existingObj.setElement(htmlImg);
-        const scaleX = slot.width / (htmlImg.width || 1);
-        const scaleY = slot.height / (htmlImg.height || 1);
         existingObj.set({
-          left: slot.left,
-          top: slot.top,
+          left: targetLeft,
+          top: targetTop,
           scaleX: scaleX,
           scaleY: scaleY,
           width: htmlImg.width,
@@ -333,10 +356,10 @@ export default function EditorPage() {
         existingObj.setCoords();
       } else {
         const newImg = new fabric.Image(htmlImg, {
-          left: slot.left,
-          top: slot.top,
-          scaleX: slot.width / (htmlImg.width || 1),
-          scaleY: slot.height / (htmlImg.height || 1),
+          left: targetLeft,
+          top: targetTop,
+          scaleX: scaleX,
+          scaleY: scaleY,
           selectable: true,
           evented: true,
           hasControls: false,
@@ -370,12 +393,12 @@ export default function EditorPage() {
         activeTarget = newImg;
       }
 
-      // Always ensure frame cutout overlay is above photos
-      const cutoutOverlay = fabricCanvas.getObjects().find(
-        (obj: any) => obj.elementId === "frame-cutout-overlay" || obj.isPlaceholder === false
+      // Ensure any fallback non-overlay element stays above photos
+      const fallbackOverlay = fabricCanvas.getObjects().find(
+        (obj: any) => obj.elementId === "frame-cutout-overlay"
       );
-      if (cutoutOverlay && typeof fabricCanvas.bringToFront === "function") {
-        fabricCanvas.bringToFront(cutoutOverlay);
+      if (fallbackOverlay && typeof fabricCanvas.bringToFront === "function") {
+        fabricCanvas.bringToFront(fallbackOverlay);
       }
 
       fabricCanvas.renderAll();

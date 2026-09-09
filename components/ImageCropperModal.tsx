@@ -10,6 +10,8 @@ import {
   Crop,
   Move,
   Sparkles,
+  Maximize2,
+  Minimize2,
 } from "lucide-react";
 
 export interface ImageCropperModalProps {
@@ -39,40 +41,95 @@ export default function ImageCropperModal({
     height: 1,
   });
 
-  // Zoom: 1.0 is cover (fills the crop window completely)
+  // Mode: "fill" (covers entire slot) or "fit" (entire photo visible, no edges cut off)
+  const [cropMode, setCropMode] = useState<"fill" | "fit">("fill");
+
+  // Zoom multiplier (1.0 = base size according to cropMode)
   const [zoom, setZoom] = useState<number>(1);
-  // Pan offset in normalized percentage [-0.5 to 0.5]
+  // Pan offset in preview container pixels
   const [offset, setOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [initialOffset, setInitialOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [isApplying, setIsApplying] = useState(false);
 
+  // Container dimensions in pixels
+  const [containerDimensions, setContainerDimensions] = useState<{ width: number; height: number }>({
+    width: 320,
+    height: 320,
+  });
+
   const imageRef = useRef<HTMLImageElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
+
+  // Helper to calculate base image size inside container
+  const computeBaseSize = useCallback(
+    (cW: number, cH: number, nw: number, nh: number, mode: "fill" | "fit") => {
+      const imgRatio = nw / (nh || 1);
+      const slotRatio = cW / (cH || 1);
+
+      if (mode === "fill") {
+        if (imgRatio > slotRatio) {
+          return { width: cH * imgRatio, height: cH };
+        } else {
+          return { width: cW, height: cW / imgRatio };
+        }
+      } else {
+        // "fit" mode: entire image fits inside container
+        if (imgRatio > slotRatio) {
+          return { width: cW, height: cW / imgRatio };
+        } else {
+          return { width: cH * imgRatio, height: cH };
+        }
+      }
+    },
+    []
+  );
+
+  // Measure container when mounted or resized
+  const updateContainerDimensions = useCallback(() => {
+    if (containerRef.current) {
+      const rect = containerRef.current.getBoundingClientRect();
+      if (rect.width > 0 && rect.height > 0) {
+        setContainerDimensions({ width: rect.width, height: rect.height });
+      }
+    }
+  }, []);
 
   // Reset state and preload image when modal opens
   useEffect(() => {
     if (isOpen) {
       setZoom(1);
-      setOffset({ x: 0, y: 0 });
+      setIsApplying(false);
 
       if (imageSrc) {
         const testImg = new Image();
         testImg.onload = () => {
-          setNaturalSize({
-            width: testImg.naturalWidth || 800,
-            height: testImg.naturalHeight || 800,
-          });
+          const nw = testImg.naturalWidth || 800;
+          const nh = testImg.naturalHeight || 800;
+          setNaturalSize({ width: nw, height: nh });
           setImageLoaded(true);
+
+          // If portrait photo, gently nudge up so subject's head isn't cut off initially
+          const imgRatio = nw / nh;
+          if (imgRatio < aspectRatio) {
+            setOffset({ x: 0, y: 15 });
+          } else {
+            setOffset({ x: 0, y: 0 });
+          }
         };
         testImg.src = imageSrc;
         if (testImg.complete && testImg.naturalWidth > 0) {
-          setNaturalSize({
-            width: testImg.naturalWidth,
-            height: testImg.naturalHeight,
-          });
+          const nw = testImg.naturalWidth;
+          const nh = testImg.naturalHeight;
+          setNaturalSize({ width: nw, height: nh });
           setImageLoaded(true);
+          const imgRatio = nw / nh;
+          if (imgRatio < aspectRatio) {
+            setOffset({ x: 0, y: 15 });
+          } else {
+            setOffset({ x: 0, y: 0 });
+          }
         } else {
           setImageLoaded(false);
         }
@@ -80,9 +137,21 @@ export default function ImageCropperModal({
         setImageLoaded(false);
       }
     }
-  }, [isOpen, imageSrc]);
+  }, [isOpen, imageSrc, aspectRatio]);
 
-  // Load natural dimensions from rendered img element
+  useEffect(() => {
+    if (isOpen) {
+      // Allow DOM to layout container
+      const timer = setTimeout(updateContainerDimensions, 50);
+      window.addEventListener("resize", updateContainerDimensions);
+      return () => {
+        clearTimeout(timer);
+        window.removeEventListener("resize", updateContainerDimensions);
+      };
+    }
+  }, [isOpen, updateContainerDimensions]);
+
+  // Handle image element load
   const handleImageLoad = (e: React.SyntheticEvent<HTMLImageElement>) => {
     const img = e.currentTarget;
     setNaturalSize({
@@ -90,6 +159,7 @@ export default function ImageCropperModal({
       height: img.naturalHeight || 800,
     });
     setImageLoaded(true);
+    updateContainerDimensions();
   };
 
   const isReadyToApply =
@@ -105,6 +175,40 @@ export default function ImageCropperModal({
     return `${ratio.toFixed(2)}:1`;
   };
 
+  // Compute current rendered dimensions of image in preview
+  const cW = containerDimensions.width;
+  const cH = containerDimensions.height;
+  const baseSize = computeBaseSize(cW, cH, naturalSize.width, naturalSize.height, cropMode);
+  const currentRenderW = baseSize.width * zoom;
+  const currentRenderH = baseSize.height * zoom;
+
+  // Clamp offset helper so user cannot drag image away into void
+  const clampOffset = useCallback(
+    (newX: number, newY: number, renderW: number, renderH: number, contW: number, contH: number, mode: "fill" | "fit") => {
+      let clampedX = newX;
+      let clampedY = newY;
+
+      if (renderW > contW) {
+        const maxX = (renderW - contW) / 2;
+        clampedX = Math.max(-maxX, Math.min(maxX, newX));
+      } else {
+        const maxOvershoot = mode === "fill" ? 0 : (contW - renderW) / 2 + 40;
+        clampedX = Math.max(-maxOvershoot, Math.min(maxOvershoot, newX));
+      }
+
+      if (renderH > contH) {
+        const maxY = (renderH - contH) / 2;
+        clampedY = Math.max(-maxY, Math.min(maxY, newY));
+      } else {
+        const maxOvershoot = mode === "fill" ? 0 : (contH - renderH) / 2 + 40;
+        clampedY = Math.max(-maxOvershoot, Math.min(maxOvershoot, newY));
+      }
+
+      return { x: clampedX, y: clampedY };
+    },
+    []
+  );
+
   // --------------------------------------------------------------------------
   // DRAG / PAN HANDLING (Touch and Mouse)
   // --------------------------------------------------------------------------
@@ -117,18 +221,25 @@ export default function ImageCropperModal({
   const handlePointerMove = useCallback(
     (clientX: number, clientY: number) => {
       if (!isDragging || !containerRef.current) return;
-      const rect = containerRef.current.getBoundingClientRect();
-      const deltaX = (clientX - dragStart.x) / rect.width;
-      const deltaY = (clientY - dragStart.y) / rect.height;
+      const deltaX = clientX - dragStart.x;
+      const deltaY = clientY - dragStart.y;
 
-      // Bound the offset so image cannot be dragged completely outside
-      const maxDrag = Math.max(0.5, (zoom - 1) / 2 + 0.3);
-      const newX = Math.max(-maxDrag, Math.min(maxDrag, initialOffset.x + deltaX));
-      const newY = Math.max(-maxDrag, Math.min(maxDrag, initialOffset.y + deltaY));
+      const rawX = initialOffset.x + deltaX;
+      const rawY = initialOffset.y + deltaY;
 
-      setOffset({ x: newX, y: newY });
+      const clamped = clampOffset(
+        rawX,
+        rawY,
+        currentRenderW,
+        currentRenderH,
+        containerDimensions.width,
+        containerDimensions.height,
+        cropMode
+      );
+
+      setOffset(clamped);
     },
-    [isDragging, dragStart, initialOffset, zoom]
+    [isDragging, dragStart, initialOffset, currentRenderW, currentRenderH, containerDimensions, cropMode, clampOffset]
   );
 
   const handlePointerUp = useCallback(() => {
@@ -152,6 +263,13 @@ export default function ImageCropperModal({
     };
   }, [isDragging, handlePointerMove, handlePointerUp]);
 
+  // Mode change handler
+  const handleSwitchMode = (newMode: "fill" | "fit") => {
+    setCropMode(newMode);
+    setZoom(1);
+    setOffset({ x: 0, y: 0 });
+  };
+
   // --------------------------------------------------------------------------
   // EXECUTE CROP & EXPORT
   // --------------------------------------------------------------------------
@@ -164,8 +282,8 @@ export default function ImageCropperModal({
       const nw = img.naturalWidth || naturalSize.width || 800;
       const nh = img.naturalHeight || naturalSize.height || 800;
 
-      // Crop canvas with target slot dimensions (min 800px for crisp render)
-      const exportWidth = Math.max(targetWidth, 800);
+      // Crisp output resolution (native 1080p scale)
+      const exportWidth = Math.max(targetWidth, 1080);
       const exportHeight = Math.round(exportWidth / aspectRatio);
 
       const canvas = document.createElement("canvas");
@@ -175,42 +293,36 @@ export default function ImageCropperModal({
 
       if (!ctx) throw new Error("Could not create canvas 2D context");
 
-      // Calculate how the image covers the aspect ratio at zoom = 1
-      const imageRatio = nw / nh;
-      let baseCropW = nw;
-      let baseCropH = nh;
+      // Scale multiplier between preview container and export canvas
+      const scaleMultiplier = exportWidth / Math.max(containerDimensions.width, 1);
 
-      if (imageRatio > aspectRatio) {
-        // Image is wider than crop box: height is the limiter
-        baseCropW = nh * aspectRatio;
-      } else {
-        // Image is taller than crop box: width is the limiter
-        baseCropH = nw / aspectRatio;
+      // Render dimensions on export canvas
+      const drawW = currentRenderW * scaleMultiplier;
+      const drawH = currentRenderH * scaleMultiplier;
+
+      const centerX = (containerDimensions.width / 2 + offset.x) * scaleMultiplier;
+      const centerY = (containerDimensions.height / 2 + offset.y) * scaleMultiplier;
+
+      const drawX = centerX - drawW / 2;
+      const drawY = centerY - drawH / 2;
+
+      ctx.clearRect(0, 0, exportWidth, exportHeight);
+
+      // If image doesn't fill canvas (Fit mode or zoomed out), render soft matching ambient blur
+      if (drawW < exportWidth || drawH < exportHeight || drawX > 0 || drawY > 0) {
+        ctx.save();
+        ctx.filter = "blur(28px) brightness(0.65)";
+        const bgScale = Math.max(exportWidth / nw, exportHeight / nh) * 1.15;
+        const bgW = nw * bgScale;
+        const bgH = nh * bgScale;
+        ctx.drawImage(img, (exportWidth - bgW) / 2, (exportHeight - bgH) / 2, bgW, bgH);
+        ctx.restore();
       }
 
-      // Applying zoom reduces the sample window
-      const sampleW = baseCropW / zoom;
-      const sampleH = baseCropH / zoom;
-
-      // Calculate center + offset
-      const centerX = nw / 2;
-      const centerY = nh / 2;
-
-      // Offset translates into natural image pixels
-      const pixelOffsetX = -offset.x * baseCropW;
-      const pixelOffsetY = -offset.y * baseCropH;
-
-      let sx = centerX - sampleW / 2 + pixelOffsetX;
-      let sy = centerY - sampleH / 2 + pixelOffsetY;
-
-      // Clamp within image bounds
-      sx = Math.max(0, Math.min(nw - sampleW, sx));
-      sy = Math.max(0, Math.min(nh - sampleH, sy));
-
-      // Draw high resolution crop
+      // Draw crisp user photo
       ctx.imageSmoothingEnabled = true;
       ctx.imageSmoothingQuality = "high";
-      ctx.drawImage(img, sx, sy, sampleW, sampleH, 0, 0, exportWidth, exportHeight);
+      ctx.drawImage(img, drawX, drawY, drawW, drawH);
 
       const croppedDataUrl = canvas.toDataURL("image/png", 0.95);
       onConfirm(croppedDataUrl);
@@ -224,21 +336,21 @@ export default function ImageCropperModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 bg-charcoal-dark/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-6 overflow-y-auto animate-fadeIn">
-      <div className="bg-charcoal text-blushWhite rounded-3xl border border-dustyMauve/30 shadow-2xl max-w-lg w-full overflow-hidden flex flex-col my-auto">
+    <div className="fixed inset-0 z-50 bg-[#0d0a0c]/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-6 overflow-y-auto animate-fadeIn">
+      <div className="bg-[#181116] text-[#FAF7F2] rounded-3xl border border-[#E2B4BD]/30 shadow-2xl max-w-lg w-full overflow-hidden flex flex-col my-auto">
         {/* Modal Header */}
-        <div className="px-5 py-4 border-b border-dustyMauve/20 flex items-center justify-between bg-charcoal-light/30">
+        <div className="px-5 py-4 border-b border-white/10 flex items-center justify-between bg-white/[0.02]">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-dustyMauve/20 border border-peachPink/30 flex items-center justify-center text-peachPink">
+            <div className="w-8 h-8 rounded-xl bg-[#E2B4BD]/20 border border-[#E2B4BD]/30 flex items-center justify-center text-[#F7D6D0]">
               <Crop className="w-4 h-4" />
             </div>
             <div>
-              <h3 className="font-playfair text-base font-bold text-blushWhite">
-                Adjust & Crop Photo
+              <h3 className="font-playfair text-base font-bold text-[#FAF7F2]">
+                Adjust &amp; Position Photo
               </h3>
-              <p className="text-[11px] text-blushWhite/70">
+              <p className="text-[11px] text-[#FAF7F2]/70">
                 {slotLabel} &bull;{" "}
-                <span className="text-peachPink font-medium">
+                <span className="text-[#F7D6D0] font-medium">
                   {formatRatio(aspectRatio)} ({Math.round(targetWidth)} &times; {Math.round(targetHeight)}px)
                 </span>
               </p>
@@ -247,15 +359,46 @@ export default function ImageCropperModal({
 
           <button
             onClick={onCancel}
-            className="p-1.5 rounded-full hover:bg-charcoal-light text-blushWhite/70 hover:text-blushWhite transition-colors"
+            className="p-1.5 rounded-full hover:bg-white/10 text-[#FAF7F2]/70 hover:text-[#FAF7F2] transition-colors"
             title="Cancel"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
+        {/* Framing Mode Toggle Bar */}
+        <div className="px-5 py-2.5 bg-black/30 border-b border-white/5 flex items-center justify-between text-xs">
+          <span className="text-[11px] text-[#FAF7F2]/60 font-light">Framing Option:</span>
+          <div className="flex items-center bg-white/[0.06] rounded-xl p-0.5 border border-white/10">
+            <button
+              type="button"
+              onClick={() => handleSwitchMode("fill")}
+              className={`flex items-center gap-1.5 px-3 py-1 rounded-lg font-medium transition-all ${
+                cropMode === "fill"
+                  ? "bg-[#E2B4BD]/30 text-[#F7D6D0] shadow-sm font-semibold"
+                  : "text-[#FAF7F2]/70 hover:text-[#FAF7F2]"
+              }`}
+            >
+              <Maximize2 className="w-3.5 h-3.5" />
+              <span>Fill Frame (No Bars)</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => handleSwitchMode("fit")}
+              className={`flex items-center gap-1.5 px-3 py-1 rounded-lg font-medium transition-all ${
+                cropMode === "fit"
+                  ? "bg-[#E2B4BD]/30 text-[#F7D6D0] shadow-sm font-semibold"
+                  : "text-[#FAF7F2]/70 hover:text-[#FAF7F2]"
+              }`}
+            >
+              <Minimize2 className="w-3.5 h-3.5" />
+              <span>Fit Whole Photo</span>
+            </button>
+          </div>
+        </div>
+
         {/* Viewport / Crop Workspace */}
-        <div className="p-4 sm:p-6 flex flex-col items-center justify-center bg-charcoal-dark/50 select-none">
+        <div className="p-4 sm:p-6 flex flex-col items-center justify-center bg-black/40 select-none">
           <div
             ref={containerRef}
             onMouseDown={(e) => handlePointerDown(e.clientX, e.clientY)}
@@ -276,10 +419,20 @@ export default function ImageCropperModal({
               width: aspectRatio >= 1 ? "100%" : "auto",
               height: aspectRatio < 1 ? "320px" : "auto",
             }}
-            className={`relative rounded-2xl overflow-hidden border-2 border-peachPink/80 shadow-2xl cursor-grab active:cursor-grabbing touch-none bg-charcoal-dark ${
-              isDragging ? "ring-4 ring-peachPink/30" : ""
+            className={`relative rounded-2xl overflow-hidden border-2 border-[#E2B4BD]/80 shadow-2xl cursor-grab active:cursor-grabbing touch-none bg-[#120d11] ${
+              isDragging ? "ring-4 ring-[#E2B4BD]/30" : ""
             }`}
           >
+            {/* Ambient blur backdrop for Fit mode */}
+            {cropMode === "fit" && imageSrc && (
+              /* eslint-disable-next-line @next/next/no-img-element */
+              <img
+                src={imageSrc}
+                alt="Backdrop ambient blur"
+                className="absolute inset-0 w-full h-full object-cover filter blur-lg opacity-40 scale-110 pointer-events-none"
+              />
+            )}
+
             {/* The underlying image scaled and shifted */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
@@ -288,41 +441,46 @@ export default function ImageCropperModal({
               alt="Crop preview"
               onLoad={handleImageLoad}
               style={{
-                transform: `translate(${offset.x * 100}%, ${offset.y * 100}%) scale(${zoom})`,
-                transformOrigin: "center center",
-                transition: isDragging ? "none" : "transform 0.15s ease-out",
+                width: `${currentRenderW}px`,
+                height: `${currentRenderH}px`,
+                position: "absolute",
+                left: "50%",
+                top: "50%",
+                transform: `translate(-50%, -50%) translate(${offset.x}px, ${offset.y}px)`,
+                transition: isDragging ? "none" : "transform 0.12s ease-out",
               }}
-              className="w-full h-full object-cover pointer-events-none select-none max-w-none"
+              className="pointer-events-none select-none max-w-none"
             />
 
-            {/* Viewfinder Overlay Guides (Grid Lines) */}
-            <div className="absolute inset-0 pointer-events-none grid grid-cols-3 grid-rows-3 opacity-30">
+            {/* Viewfinder Rule-of-Thirds Grid */}
+            <div className="absolute inset-0 pointer-events-none grid grid-cols-3 grid-rows-3 opacity-25">
               <div className="border-r border-b border-white" />
               <div className="border-r border-b border-white" />
               <div className="border-b border-white" />
               <div className="border-r border-b border-white" />
               <div className="border-r border-b border-white" />
               <div className="border-b border-white" />
-              <div className="border-r border-white" />
-              <div className="border-r border-white" />
+              <div className="border-r border-b border-white" />
+              <div className="border-r border-b border-white" />
               <div />
             </div>
 
             {/* Hint Badge */}
-            <div className="absolute bottom-2 left-1/2 -translate-x-1/2 bg-charcoal-dark/80 px-2.5 py-1 rounded-full text-[10px] text-blushWhite/80 pointer-events-none flex items-center gap-1.5 backdrop-blur-sm border border-dustyMauve/30">
-              <Move className="w-3 h-3 text-peachPink" />
+            <div className="absolute bottom-2 left-1/2 -translate-x-1/2 bg-black/80 px-2.5 py-1 rounded-full text-[10px] text-[#FAF7F2]/80 pointer-events-none flex items-center gap-1.5 backdrop-blur-sm border border-white/10">
+              <Move className="w-3 h-3 text-[#F7D6D0]" />
               <span>Drag to reposition &bull; Slider to zoom</span>
             </div>
           </div>
         </div>
 
         {/* Interactive Controls Toolbar */}
-        <div className="px-5 py-3 border-t border-dustyMauve/20 bg-charcoal-light/20 flex flex-col gap-3">
+        <div className="px-5 py-3 border-t border-white/10 bg-white/[0.02] flex flex-col gap-3">
           {/* Zoom Slider */}
           <div className="flex items-center gap-3">
             <button
-              onClick={() => setZoom((prev) => Math.max(1, +(prev - 0.1).toFixed(2)))}
-              className="p-1.5 rounded-lg bg-charcoal hover:bg-charcoal-light text-blushWhite/80 hover:text-blushWhite border border-dustyMauve/20 transition-all"
+              type="button"
+              onClick={() => setZoom((prev) => Math.max(0.3, +(prev - 0.1).toFixed(2)))}
+              className="p-1.5 rounded-lg bg-black/40 hover:bg-black/60 text-[#FAF7F2]/80 hover:text-[#FAF7F2] border border-white/10 transition-all"
               title="Zoom out"
             >
               <ZoomOut className="w-4 h-4" />
@@ -331,32 +489,34 @@ export default function ImageCropperModal({
             <div className="flex-1 flex items-center gap-2">
               <input
                 type="range"
-                min="1"
+                min="0.3"
                 max="3"
                 step="0.02"
                 value={zoom}
                 onChange={(e) => setZoom(parseFloat(e.target.value))}
-                className="w-full accent-dustyMauve h-1.5 bg-charcoal rounded-lg cursor-pointer"
+                className="w-full accent-[#E2B4BD] h-1.5 bg-black/40 rounded-lg cursor-pointer"
               />
-              <span className="text-[11px] font-mono text-peachPink w-10 text-right">
+              <span className="text-[11px] font-mono text-[#F7D6D0] w-12 text-right">
                 {Math.round(zoom * 100)}%
               </span>
             </div>
 
             <button
+              type="button"
               onClick={() => setZoom((prev) => Math.min(3, +(prev + 0.1).toFixed(2)))}
-              className="p-1.5 rounded-lg bg-charcoal hover:bg-charcoal-light text-blushWhite/80 hover:text-blushWhite border border-dustyMauve/20 transition-all"
+              className="p-1.5 rounded-lg bg-black/40 hover:bg-black/60 text-[#FAF7F2]/80 hover:text-[#FAF7F2] border border-white/10 transition-all"
               title="Zoom in"
             >
               <ZoomIn className="w-4 h-4" />
             </button>
 
             <button
+              type="button"
               onClick={() => {
                 setZoom(1);
                 setOffset({ x: 0, y: 0 });
               }}
-              className="p-1.5 rounded-lg bg-charcoal hover:bg-charcoal-light text-blushWhite/80 hover:text-blushWhite border border-dustyMauve/20 transition-all flex items-center gap-1 text-[11px] px-2.5"
+              className="p-1.5 rounded-lg bg-black/40 hover:bg-black/60 text-[#FAF7F2]/80 hover:text-[#FAF7F2] border border-white/10 transition-all flex items-center gap-1 text-[11px] px-2.5"
               title="Reset Position"
             >
               <RotateCcw className="w-3.5 h-3.5" />
@@ -366,25 +526,27 @@ export default function ImageCropperModal({
         </div>
 
         {/* Footer Actions */}
-        <div className="px-5 py-4 border-t border-dustyMauve/20 flex items-center justify-between bg-charcoal-light/30">
+        <div className="px-5 py-4 border-t border-white/10 flex items-center justify-between bg-white/[0.02]">
           <button
+            type="button"
             onClick={onCancel}
-            className="px-4 py-2 rounded-full border border-dustyMauve/30 text-blushWhite/80 hover:text-blushWhite text-xs font-medium hover:bg-charcoal-light transition-all"
+            className="px-4 py-2 rounded-full border border-white/20 text-[#FAF7F2]/80 hover:text-[#FAF7F2] text-xs font-medium hover:bg-white/10 transition-all"
           >
             Cancel
           </button>
 
           <button
+            type="button"
             onClick={handleApplyCrop}
             disabled={isApplying || !isReadyToApply}
-            className="inline-flex items-center gap-2 px-6 py-2.5 rounded-full bg-peachPink hover:bg-blushWhite text-charcoal font-semibold text-xs sm:text-sm shadow-md hover:shadow-lg transition-all transform active:scale-95 disabled:opacity-50 cursor-pointer"
+            className="inline-flex items-center gap-2 px-6 py-2.5 rounded-full bg-gradient-to-r from-[#E2B4BD] to-[#F7D6D0] hover:brightness-105 text-[#181116] font-semibold text-xs sm:text-sm shadow-md hover:shadow-lg transition-all transform active:scale-95 disabled:opacity-50 cursor-pointer"
           >
             {isApplying ? (
-              <Sparkles className="w-4 h-4 animate-spin text-charcoal" />
+              <Sparkles className="w-4 h-4 animate-spin text-[#181116]" />
             ) : (
-              <Check className="w-4 h-4 text-charcoal" />
+              <Check className="w-4 h-4 text-[#181116]" />
             )}
-            <span>{isApplying ? "Cropping..." : "Apply to Story"}</span>
+            <span>{isApplying ? "Applying..." : "Apply to Story"}</span>
           </button>
         </div>
       </div>
