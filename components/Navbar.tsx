@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
-import { Sparkles, Grid, Palette } from "lucide-react";
+import { Sparkles, Grid, Palette, Upload } from "lucide-react";
 
 export default function Navbar() {
   const [isScrolled, setIsScrolled] = useState(false);
@@ -60,10 +60,31 @@ export default function Navbar() {
             <Grid className="w-4 h-4" />
             Gallery
           </Link>
+          <Link
+            href="/upload-template"
+            className={`${
+              isScrolled ? "text-plum/90 hover:text-plum" : "text-cream/90 hover:text-cream"
+            } transition-colors tracking-wide flex items-center gap-1.5`}
+          >
+            <Upload className="w-4 h-4" />
+            Upload Template
+          </Link>
         </nav>
 
-        {/* Action Button */}
-        <div className="flex items-center space-x-4">
+        {/* Action Buttons */}
+        <div className="flex items-center space-x-3">
+          <Link
+            href="/upload-template"
+            className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-full text-xs sm:text-sm font-medium tracking-wide transition-all border ${
+              isScrolled
+                ? "border-plum/30 bg-plum/5 hover:bg-plum/10 text-plum"
+                : "border-cream/35 bg-cream/10 hover:bg-cream/20 text-cream backdrop-blur-sm"
+            }`}
+          >
+            <Upload className="w-3.5 h-3.5" />
+            <span>Upload Template</span>
+          </Link>
+
           <Link
             href="/gallery"
             className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-xs sm:text-sm font-semibold tracking-wide transition-all shadow-md hover:shadow-lg transform active:scale-95 ${
@@ -73,7 +94,8 @@ export default function Navbar() {
             }`}
           >
             <Palette className="w-4 h-4" />
-            <span>Browse Templates</span>
+            <span className="hidden sm:inline">Browse Templates</span>
+            <span className="sm:hidden">Browse</span>
           </Link>
         </div>
       </div>

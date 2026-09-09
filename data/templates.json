@@ -4,7 +4,13 @@
     "name": "Sakura Ethereal Haze",
     "category": "Dreamy",
     "description": "Soft gradient blooms with glowing serif typography and delicate framing.",
-    "tags": ["Aesthetic", "Soft", "Sakura", "Romantic", "Quote"],
+    "tags": [
+      "Aesthetic",
+      "Soft",
+      "Sakura",
+      "Romantic",
+      "Quote"
+    ],
     "accentColor": "#E2B4BD",
     "thumbnailUrl": "/previews/dreamy-sakura-haze.png",
     "layoutJson": {
@@ -15,9 +21,18 @@
         "type": "linear",
         "angle": 180,
         "colors": [
-          { "offset": 0, "color": "#4A4A4A" },
-          { "offset": 0.5, "color": "#E2B4BD" },
-          { "offset": 1, "color": "#FFF5F5" }
+          {
+            "offset": 0,
+            "color": "#4A4A4A"
+          },
+          {
+            "offset": 0.5,
+            "color": "#E2B4BD"
+          },
+          {
+            "offset": 1,
+            "color": "#FFF5F5"
+          }
         ]
       },
       "elements": [
@@ -109,7 +124,13 @@
     "name": "Cyber Sparkle 2000",
     "category": "Y2K",
     "description": "High-energy early 2000s cyber aesthetic with bold chrome accents and starry vibes.",
-    "tags": ["Y2K", "Cyber", "2000s", "Glow", "Chrome"],
+    "tags": [
+      "Y2K",
+      "Cyber",
+      "2000s",
+      "Glow",
+      "Chrome"
+    ],
     "accentColor": "#E2B4BD",
     "thumbnailUrl": "/previews/y2k-cyber-sparkle.png",
     "layoutJson": {
@@ -239,7 +260,13 @@
     "name": "Studio Editorial No. 4",
     "category": "Minimal",
     "description": "Sophisticated white space with refined typography and understated elegance.",
-    "tags": ["Minimal", "Clean", "Editorial", "Vogue", "Modern"],
+    "tags": [
+      "Minimal",
+      "Clean",
+      "Editorial",
+      "Vogue",
+      "Modern"
+    ],
     "accentColor": "#4A4A4A",
     "thumbnailUrl": "/previews/minimal-studio-editorial.png",
     "layoutJson": {
@@ -329,7 +356,13 @@
     "name": "1970s Film Mood",
     "category": "Vintage",
     "description": "Nostalgic Polaroid film frame with warm sepia tones and vintage typewriter dates.",
-    "tags": ["Vintage", "Retro", "Polaroid", "Film", "Nostalgia"],
+    "tags": [
+      "Vintage",
+      "Retro",
+      "Polaroid",
+      "Film",
+      "Nostalgia"
+    ],
     "accentColor": "#4A4A4A",
     "thumbnailUrl": "/previews/vintage-polaroid-1970.png",
     "layoutJson": {
@@ -420,7 +453,13 @@
     "name": "Vogue Streetwear Drop",
     "category": "Bold",
     "description": "Striking typography, geometric color blocks, and high-impact visual contrast.",
-    "tags": ["Bold", "Streetwear", "Fashion", "Graphic", "Modern"],
+    "tags": [
+      "Bold",
+      "Streetwear",
+      "Fashion",
+      "Graphic",
+      "Modern"
+    ],
     "accentColor": "#F7D6D0",
     "thumbnailUrl": "/previews/bold-vogue-streetwear.png",
     "layoutJson": {
@@ -521,7 +560,13 @@
     "name": "Golden Hour Glow",
     "category": "Dreamy",
     "description": "Warm sunset tones with glowing soft highlights and romantic poetry typography.",
-    "tags": ["Dreamy", "Golden Hour", "Sunset", "Glow", "Warm"],
+    "tags": [
+      "Dreamy",
+      "Golden Hour",
+      "Sunset",
+      "Glow",
+      "Warm"
+    ],
     "accentColor": "#F7D6D0",
     "thumbnailUrl": "/previews/dreamy-golden-hour.png",
     "layoutJson": {
@@ -532,9 +577,18 @@
         "type": "linear",
         "angle": 180,
         "colors": [
-          { "offset": 0, "color": "#E2B4BD" },
-          { "offset": 0.6, "color": "#F7D6D0" },
-          { "offset": 1, "color": "#FFF5F5" }
+          {
+            "offset": 0,
+            "color": "#E2B4BD"
+          },
+          {
+            "offset": 0.6,
+            "color": "#F7D6D0"
+          },
+          {
+            "offset": 1,
+            "color": "#FFF5F5"
+          }
         ]
       },
       "elements": [
@@ -612,6 +666,219 @@
           "fill": "#4A4A4A",
           "textAlign": "center",
           "letterSpacing": 4
+        }
+      ]
+    }
+  },
+  {
+    "id": "minimal-summer-self-love-collage-template",
+    "name": "Summer Self Love Collage Template",
+    "category": "Minimal",
+    "description": "Custom story frame template with dynamic photo placeholders.",
+    "tags": [
+      "Frame",
+      "Aesthetic",
+      "Minimal",
+      "Story"
+    ],
+    "accentColor": "#E2B4BD",
+    "thumbnailUrl": "/frames/minimal-summer-self-love-collage-template-frame.png",
+    "layoutJson": {
+      "width": 1080,
+      "height": 1920,
+      "backgroundColor": "#4A4A4A",
+      "elements": [
+        {
+          "id": "photo-placeholder-1",
+          "type": "image",
+          "left": 128,
+          "top": 120,
+          "width": 712,
+          "height": 448,
+          "src": "https://images.unsplash.com/photo-1522383225653-ed111181a951?w=1000&auto=format&fit=crop&q=80",
+          "placeholderLabel": "Replace Photo #1",
+          "isPlaceholder": true,
+          "stroke": "#FFF5F5",
+          "strokeWidth": 2
+        },
+        {
+          "id": "photo-placeholder-2",
+          "type": "image",
+          "left": 232,
+          "top": 752,
+          "width": 664,
+          "height": 432,
+          "src": "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=1000&auto=format&fit=crop&q=80",
+          "placeholderLabel": "Replace Photo #2",
+          "isPlaceholder": true,
+          "stroke": "#FFF5F5",
+          "strokeWidth": 2
+        },
+        {
+          "id": "photo-placeholder-3",
+          "type": "image",
+          "left": 264,
+          "top": 1352,
+          "width": 712,
+          "height": 440,
+          "src": "https://images.unsplash.com/photo-1518895949257-7621c3c786d7?w=1000&auto=format&fit=crop&q=80",
+          "placeholderLabel": "Replace Photo #3",
+          "isPlaceholder": true,
+          "stroke": "#FFF5F5",
+          "strokeWidth": 2
+        },
+        {
+          "id": "frame-cutout-overlay",
+          "type": "image",
+          "left": 0,
+          "top": 0,
+          "width": 1080,
+          "height": 1920,
+          "src": "/frames/minimal-summer-self-love-collage-template-frame.png",
+          "selectable": false,
+          "isPlaceholder": false
+        }
+      ]
+    }
+  },
+  {
+    "id": "minimal-download-1",
+    "name": "Download (1)",
+    "category": "Minimal",
+    "description": "Custom story frame template with dynamic photo placeholders.",
+    "tags": [
+      "Frame",
+      "Aesthetic",
+      "Minimal",
+      "Story"
+    ],
+    "accentColor": "#E2B4BD",
+    "thumbnailUrl": "/frames/minimal-download-1-frame.png",
+    "layoutJson": {
+      "width": 1080,
+      "height": 1920,
+      "backgroundColor": "#4A4A4A",
+      "elements": [
+        {
+          "id": "photo-placeholder-1",
+          "type": "image",
+          "left": 0,
+          "top": 0,
+          "width": 760,
+          "height": 450,
+          "src": "https://images.unsplash.com/photo-1522383225653-ed111181a951?w=1000&auto=format&fit=crop&q=80",
+          "placeholderLabel": "Replace Photo #1",
+          "isPlaceholder": true,
+          "stroke": "#FFF5F5",
+          "strokeWidth": 2
+        },
+        {
+          "id": "photo-placeholder-2",
+          "type": "image",
+          "left": 270,
+          "top": 510,
+          "width": 770,
+          "height": 440,
+          "src": "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=1000&auto=format&fit=crop&q=80",
+          "placeholderLabel": "Replace Photo #2",
+          "isPlaceholder": true,
+          "stroke": "#FFF5F5",
+          "strokeWidth": 2
+        },
+        {
+          "id": "photo-placeholder-3",
+          "type": "image",
+          "left": 40,
+          "top": 1000,
+          "width": 730,
+          "height": 420,
+          "src": "https://images.unsplash.com/photo-1518895949257-7621c3c786d7?w=1000&auto=format&fit=crop&q=80",
+          "placeholderLabel": "Replace Photo #3",
+          "isPlaceholder": true,
+          "stroke": "#FFF5F5",
+          "strokeWidth": 2
+        },
+        {
+          "id": "photo-placeholder-4",
+          "type": "image",
+          "left": 330,
+          "top": 1480,
+          "width": 710,
+          "height": 400,
+          "src": "https://images.unsplash.com/photo-1522383225653-ed111181a951?w=1000&auto=format&fit=crop&q=80",
+          "placeholderLabel": "Replace Photo #4",
+          "isPlaceholder": true,
+          "stroke": "#FFF5F5",
+          "strokeWidth": 2
+        },
+        {
+          "id": "frame-cutout-overlay",
+          "type": "image",
+          "left": 0,
+          "top": 0,
+          "width": 1080,
+          "height": 1920,
+          "src": "/frames/minimal-download-1-frame.png",
+          "selectable": false,
+          "isPlaceholder": false
+        }
+      ]
+    }
+  },
+  {
+    "id": "minimal-download-2",
+    "name": "Download (2)",
+    "category": "Minimal",
+    "description": "Custom story frame template with dynamic photo placeholders.",
+    "tags": [
+      "Frame",
+      "Aesthetic",
+      "Minimal",
+      "Story"
+    ],
+    "accentColor": "#E2B4BD",
+    "thumbnailUrl": "/frames/minimal-download-2-frame.png",
+    "layoutJson": {
+      "width": 1080,
+      "height": 1920,
+      "backgroundColor": "#4A4A4A",
+      "elements": [
+        {
+          "id": "photo-placeholder-1",
+          "type": "image",
+          "left": 40,
+          "top": 384,
+          "width": 488,
+          "height": 584,
+          "src": "https://images.unsplash.com/photo-1522383225653-ed111181a951?w=1000&auto=format&fit=crop&q=80",
+          "placeholderLabel": "Replace Photo #1",
+          "isPlaceholder": true,
+          "stroke": "#FFF5F5",
+          "strokeWidth": 2
+        },
+        {
+          "id": "photo-placeholder-2",
+          "type": "image",
+          "left": 568,
+          "top": 936,
+          "width": 488,
+          "height": 576,
+          "src": "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=1000&auto=format&fit=crop&q=80",
+          "placeholderLabel": "Replace Photo #2",
+          "isPlaceholder": true,
+          "stroke": "#FFF5F5",
+          "strokeWidth": 2
+        },
+        {
+          "id": "frame-cutout-overlay",
+          "type": "image",
+          "left": 0,
+          "top": 0,
+          "width": 1080,
+          "height": 1920,
+          "src": "/frames/minimal-download-2-frame.png",
+          "selectable": false,
+          "isPlaceholder": false
         }
       ]
     }

@@ -1,18 +1,17 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import templatesData from "@/data/templates.json";
 import { Template, LayoutJson } from "@/types/template";
 import TemplateCanvas from "@/components/TemplateCanvas";
+import ImageCropperModal from "@/components/ImageCropperModal";
+import { loadFabric } from "@/lib/fabric";
 import {
   ArrowLeft,
   Download,
   Upload,
-  Type,
-  Palette,
-  Trash2,
   Sparkles,
   Layers,
   ZoomIn,
@@ -20,11 +19,25 @@ import {
   RotateCcw,
   CheckCircle2,
   Image as ImageIcon,
-  AlignCenter,
-  AlignLeft,
-  AlignRight,
   Move,
+  Crop,
+  Check,
+  RefreshCw,
+  Sliders,
+  FlipHorizontal,
 } from "lucide-react";
+
+interface PhotoSlot {
+  id: string;
+  index: number;
+  label: string;
+  width: number;
+  height: number;
+  aspectRatio: number;
+  left: number;
+  top: number;
+  currentSrc: string;
+}
 
 export default function EditorPage() {
   const params = useParams();
@@ -45,21 +58,75 @@ export default function EditorPage() {
     initialTemplate.layoutJson.backgroundColor || "#4A4A4A"
   );
 
+  // Photo slots identified from template elements
+  const photoSlots: PhotoSlot[] = useMemo(() => {
+    return template.layoutJson.elements
+      .filter((el) => el.type === "image" && el.id !== "frame-cutout-overlay")
+      .map((el, idx) => {
+        const imgEl = el as any;
+        const w = imgEl.width || 600;
+        const h = imgEl.height || 600;
+        return {
+          id: imgEl.id,
+          index: idx + 1,
+          label: imgEl.placeholderLabel || `Photo #${idx + 1}`,
+          width: w,
+          height: h,
+          aspectRatio: +(w / h).toFixed(3),
+          left: imgEl.left,
+          top: imgEl.top,
+          currentSrc: imgEl.src,
+        };
+      });
+  }, [template]);
+
+  const [selectedSlotId, setSelectedSlotId] = useState<string | null>(
+    photoSlots.length > 0 ? photoSlots[0].id : null
+  );
+  const [slotThumbnails, setSlotThumbnails] = useState<{ [slotId: string]: string }>({});
+
+  // Cropper Modal State
+  const [cropperModal, setCropperModal] = useState<{
+    isOpen: boolean;
+    imageSrc: string;
+    targetSlot: PhotoSlot | null;
+  }>({
+    isOpen: false,
+    imageSrc: "",
+    targetSlot: null,
+  });
+
+  const pendingSlotRef = useRef<PhotoSlot | null>(null);
+
+  // Cached Fabric module reference to guarantee singleton usage across all operations
+  const fabricModuleRef = useRef<any>(null);
+
   // Hidden file input ref for image uploads
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Load and cache the shared Fabric.js singleton once on mount
+  useEffect(() => {
+    loadFabric().then((loaded) => {
+      if (loaded) {
+        fabricModuleRef.current = loaded;
+      }
+    });
+  }, []);
 
   // Responsive scale calculation to fit viewport
   useEffect(() => {
     const computeScale = () => {
-      // Calculate available height: viewport minus top bar (70px) and padding (80px)
-      const availableHeight = window.innerHeight - 150;
-      const availableWidth = window.innerWidth - 380; // Leaving room for side toolbar on desktop
+      const isMobile = window.innerWidth < 768;
+      // Extra bottom allowance on mobile for the photo slots dock
+      const bottomAllowance = isMobile ? 180 : 150;
+      const availableHeight = window.innerHeight - bottomAllowance;
+      const availableWidth = isMobile ? window.innerWidth - 32 : window.innerWidth - 420;
       
       const scaleFromHeight = availableHeight / 1920;
-      const scaleFromWidth = Math.max(0.2, (availableWidth > 0 ? availableWidth : window.innerWidth - 40) / 1080);
+      const scaleFromWidth = Math.max(0.18, (availableWidth > 0 ? availableWidth : window.innerWidth - 32) / 1080);
       
       const optimalScale = Math.min(scaleFromHeight, scaleFromWidth);
-      setCanvasScale(Math.max(0.22, Math.min(0.48, optimalScale)));
+      setCanvasScale(Math.max(0.18, Math.min(0.48, optimalScale)));
     };
 
     computeScale();
@@ -68,83 +135,106 @@ export default function EditorPage() {
   }, []);
 
   // Handle Canvas Ready
-  const handleCanvasReady = (canvasInstance: any) => {
+  const handleCanvasReady = (canvasInstance: any, fabricInstance?: any) => {
     setFabricCanvas(canvasInstance);
+    if (fabricInstance) {
+      fabricModuleRef.current = fabricInstance;
+    }
   };
 
   // Selection change listener from Fabric.js
   const handleSelectionChange = (obj: any | null) => {
     setActiveObject(obj);
-  };
-
-  // ============================================================================
-  // BACKGROUND COLOR / THEME CHANGES
-  // ============================================================================
-  const handleBackgroundColorChange = (colorHex: string) => {
-    setSelectedBgColor(colorHex);
-    if (!fabricCanvas) return;
-    fabricCanvas.setBackgroundColor(colorHex, fabricCanvas.renderAll.bind(fabricCanvas));
-  };
-
-  // ============================================================================
-  // TEXT MODIFICATION HANDLERS
-  // ============================================================================
-  const updateActiveTextProp = (prop: string, value: any) => {
-    if (!fabricCanvas || !activeObject || activeObject.type !== "textbox") return;
-    activeObject.set(prop, value);
-    fabricCanvas.renderAll();
-    // Force re-render of toolbar
-    setActiveObject({ ...activeObject, [prop]: value });
-  };
-
-  // Add new aesthetic text element
-  const handleAddText = async (style: "serif" | "sans" | "tagline") => {
-    if (!fabricCanvas) return;
-    const { fabric } = await import("fabric");
-
-    let textContent = "New Story Heading";
-    let fontFamily = "Playfair Display, serif";
-    let fontSize = 64;
-    let fill = "#FFF5F5";
-
-    if (style === "sans") {
-      textContent = "Add your story quote or subtext here...";
-      fontFamily = "Poppins, sans-serif";
-      fontSize = 32;
-    } else if (style === "tagline") {
-      textContent = "• DAILY AESTHETIC •";
-      fontFamily = "Poppins, sans-serif";
-      fontSize = 24;
-      fill = "#F7D6D0";
+    if (obj && (obj as any).elementId) {
+      const match = photoSlots.find((s) => s.id === (obj as any).elementId);
+      if (match) {
+        setSelectedSlotId(match.id);
+      }
     }
+  };
 
-    const textObj = new fabric.Textbox(textContent, {
-      left: 540,
-      top: 960,
-      originX: "center",
-      originY: "center",
-      fontFamily: fontFamily,
-      fontSize: fontSize,
-      fill: fill,
-      textAlign: "center",
-      width: 700,
-      cornerColor: "#E2B4BD",
-      cornerStyle: "circle",
-      cornerSize: 24,
-      transparentCorners: false,
-      borderColor: "#F7D6D0",
-      padding: 12,
+  // ============================================================================
+  // PICTURE MODIFICATION HANDLERS
+  // ============================================================================
+  const updateActiveSlotProp = (prop: string, value: any) => {
+    if (!fabricCanvas || !selectedSlotId) return;
+    const objects = fabricCanvas.getObjects();
+    const targetObj = objects.find((o: any) => o.elementId === selectedSlotId);
+    if (!targetObj) return;
+
+    targetObj.set(prop, value);
+    fabricCanvas.renderAll();
+    setActiveObject({ ...targetObj });
+  };
+
+  const handleToggleFlipX = () => {
+    if (!fabricCanvas || !selectedSlotId) return;
+    const objects = fabricCanvas.getObjects();
+    const targetObj = objects.find((o: any) => o.elementId === selectedSlotId);
+    if (!targetObj) return;
+
+    const newFlip = !targetObj.flipX;
+    targetObj.set("flipX", newFlip);
+    fabricCanvas.renderAll();
+    setActiveObject({ ...targetObj, flipX: newFlip });
+  };
+
+  const handleResetSlotPhoto = (slot: PhotoSlot) => {
+    // Revert back to original template's stock photo
+    const originalElem = template.layoutJson.elements.find((el) => el.id === slot.id) as any;
+    const originalSrc = originalElem?.src || slot.currentSrc;
+    if (!originalSrc) return;
+
+    // Clear local custom thumbnail
+    setSlotThumbnails((prev) => {
+      const updated = { ...prev };
+      delete updated[slot.id];
+      return updated;
     });
 
-    fabricCanvas.add(textObj);
-    fabricCanvas.setActiveObject(textObj);
-    fabricCanvas.renderAll();
+    applyCroppedImageToSlot(slot, originalSrc);
   };
 
   // ============================================================================
-  // IMAGE REPLACEMENT / UPLOAD HANDLER
+  // PHOTO SLOTS & CROPPING HANDLERS
   // ============================================================================
+  const handleSelectSlot = (slot: PhotoSlot) => {
+    setSelectedSlotId(slot.id);
+    if (!fabricCanvas) return;
+    const objects = fabricCanvas.getObjects();
+    const targetObj = objects.find((o: any) => o.elementId === slot.id);
+    if (targetObj) {
+      fabricCanvas.setActiveObject(targetObj);
+      fabricCanvas.renderAll();
+      setActiveObject(targetObj);
+    }
+  };
+
+  const handlePickPhotoForSlot = (slot: PhotoSlot) => {
+    pendingSlotRef.current = slot;
+    setSelectedSlotId(slot.id);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+      fileInputRef.current.click();
+    }
+  };
+
+  const handleAdjustCropForSlot = (slot: PhotoSlot) => {
+    const currentSrc = slotThumbnails[slot.id] || slot.currentSrc;
+    if (!currentSrc) return;
+    setCropperModal({
+      isOpen: true,
+      imageSrc: currentSrc,
+      targetSlot: slot,
+    });
+  };
+
   const triggerImageUpload = () => {
+    const targetSlot =
+      photoSlots.find((s) => s.id === selectedSlotId) ||
+      photoSlots[0] ||
+      null;
+    pendingSlotRef.current = targetSlot;
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
       fileInputRef.current.click();
@@ -153,73 +243,133 @@ export default function EditorPage() {
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file || !fabricCanvas) return;
+    if (!file) return;
+
+    const targetSlot =
+      pendingSlotRef.current ||
+      photoSlots.find((s) => s.id === selectedSlotId) ||
+      photoSlots[0];
+
+    if (!targetSlot) return;
 
     const reader = new FileReader();
     reader.onload = async (event) => {
       const dataUrl = event.target?.result as string;
       if (!dataUrl) return;
 
-      const { fabric } = await import("fabric");
-
-      // If an image is currently selected, replace its source while preserving position and scale
-      if (activeObject && activeObject.type === "image") {
-        const currentLeft = activeObject.left;
-        const currentTop = activeObject.top;
-        const currentScaleX = activeObject.scaleX;
-        const currentScaleY = activeObject.scaleY;
-        const currentAngle = activeObject.angle;
-
-        fabric.Image.fromURL(dataUrl, (newImg: any) => {
-          if (!newImg) return;
-          newImg.set({
-            left: currentLeft,
-            top: currentTop,
-            scaleX: currentScaleX,
-            scaleY: currentScaleY,
-            angle: currentAngle,
-            cornerColor: "#E2B4BD",
-            cornerStyle: "circle",
-            cornerSize: 24,
-            transparentCorners: false,
-            borderColor: "#F7D6D0",
-          });
-
-          fabricCanvas.remove(activeObject);
-          fabricCanvas.add(newImg);
-          fabricCanvas.setActiveObject(newImg);
-          fabricCanvas.renderAll();
-          setActiveObject(newImg);
-        });
-      } else {
-        // Otherwise add a new photo layer
-        fabric.Image.fromURL(dataUrl, (newImg: any) => {
-          if (!newImg) return;
-          const targetWidth = 600;
-          const scale = targetWidth / (newImg.width || 1);
-
-          newImg.set({
-            left: 540,
-            top: 960,
-            originX: "center",
-            originY: "center",
-            scaleX: scale,
-            scaleY: scale,
-            cornerColor: "#E2B4BD",
-            cornerStyle: "circle",
-            cornerSize: 24,
-            transparentCorners: false,
-            borderColor: "#F7D6D0",
-          });
-
-          fabricCanvas.add(newImg);
-          fabricCanvas.setActiveObject(newImg);
-          fabricCanvas.renderAll();
-          setActiveObject(newImg);
-        });
-      }
+      // Open the cropper modal locked to the slot's exact proportions
+      setCropperModal({
+        isOpen: true,
+        imageSrc: dataUrl,
+        targetSlot: targetSlot,
+      });
     };
     reader.readAsDataURL(file);
+  };
+
+  const applyCroppedImageToSlot = async (slot: PhotoSlot, croppedDataUrl: string) => {
+    if (!fabricCanvas) return;
+    const fabric = fabricModuleRef.current || (await loadFabric());
+    if (!fabric) return;
+
+    // Cache thumbnail locally so the slot list updates immediately
+    setSlotThumbnails((prev) => ({ ...prev, [slot.id]: croppedDataUrl }));
+
+    const objects = fabricCanvas.getObjects();
+    const existingObj = objects.find((o: any) => o.elementId === slot.id);
+
+    // Use native Image element to guarantee 100% reliable first-time load without data-URL crossOrigin issues
+    const htmlImg = new Image();
+    const applyToFabric = () => {
+      let activeTarget: any = existingObj;
+
+      if (existingObj && typeof existingObj.setElement === "function") {
+        // Fast, reliable in-place element swap without re-stacking
+        existingObj.setElement(htmlImg);
+        const scaleX = slot.width / (htmlImg.width || 1);
+        const scaleY = slot.height / (htmlImg.height || 1);
+        existingObj.set({
+          left: slot.left,
+          top: slot.top,
+          scaleX: scaleX,
+          scaleY: scaleY,
+          width: htmlImg.width,
+          height: htmlImg.height,
+          selectable: true,
+          evented: true,
+          hasControls: false,
+          hasBorders: true,
+          borderColor: "#E2B4BD",
+          borderScaleFactor: 2,
+          lockMovementX: true,
+          lockMovementY: true,
+          lockRotation: true,
+          lockScalingX: true,
+          lockScalingY: true,
+        });
+        existingObj.setCoords();
+      } else {
+        const newImg = new fabric.Image(htmlImg, {
+          left: slot.left,
+          top: slot.top,
+          scaleX: slot.width / (htmlImg.width || 1),
+          scaleY: slot.height / (htmlImg.height || 1),
+          selectable: true,
+          evented: true,
+          hasControls: false,
+          hasBorders: true,
+          borderColor: "#E2B4BD",
+          borderScaleFactor: 2,
+          lockMovementX: true,
+          lockMovementY: true,
+          lockRotation: true,
+          lockScalingX: true,
+          lockScalingY: true,
+        });
+
+        (newImg as any).elementId = slot.id;
+        (newImg as any).elementType = "image";
+        (newImg as any).targetWidth = slot.width;
+        (newImg as any).targetHeight = slot.height;
+        (newImg as any).aspectRatio = slot.aspectRatio;
+
+        if (existingObj) {
+          const index = objects.indexOf(existingObj);
+          fabricCanvas.remove(existingObj);
+          if (typeof fabricCanvas.insertAt === "function") {
+            fabricCanvas.insertAt(newImg, index);
+          } else {
+            fabricCanvas.add(newImg);
+          }
+        } else {
+          fabricCanvas.add(newImg);
+        }
+        activeTarget = newImg;
+      }
+
+      // Always ensure frame cutout overlay is above photos
+      const cutoutOverlay = fabricCanvas.getObjects().find(
+        (obj: any) => obj.elementId === "frame-cutout-overlay" || obj.isPlaceholder === false
+      );
+      if (cutoutOverlay && typeof fabricCanvas.bringToFront === "function") {
+        fabricCanvas.bringToFront(cutoutOverlay);
+      }
+
+      fabricCanvas.renderAll();
+      if (activeTarget && typeof fabricCanvas.setActiveObject === "function") {
+        fabricCanvas.setActiveObject(activeTarget);
+        fabricCanvas.renderAll();
+      }
+      setActiveObject(activeTarget || null);
+      setSelectedSlotId(slot.id);
+      pendingSlotRef.current = null;
+    };
+
+    htmlImg.onload = applyToFabric;
+    htmlImg.src = croppedDataUrl;
+    if (htmlImg.complete && htmlImg.naturalWidth > 0) {
+      applyToFabric();
+    }
   };
 
   // Delete currently selected element
@@ -283,14 +433,11 @@ export default function EditorPage() {
     }, 150);
   };
 
-  const brandSwatches = [
-    { name: "Charcoal", hex: "#4A4A4A" },
-    { name: "Dusty Mauve", hex: "#E2B4BD" },
-    { name: "Peach Pink", hex: "#F7D6D0" },
-    { name: "Blush White", hex: "#FFF5F5" },
-    { name: "Midnight", hex: "#1F1F1F" },
-    { name: "Pure White", hex: "#FFFFFF" },
-  ];
+  const activeSlot = photoSlots.find((s) => s.id === selectedSlotId) || photoSlots[0] || null;
+  const activeSlotPreview = activeSlot ? (slotThumbnails[activeSlot.id] || activeSlot.currentSrc) : "";
+  const activeSlotFabricObj = fabricCanvas && activeSlot ? fabricCanvas.getObjects().find((o: any) => o.elementId === activeSlot.id) : null;
+  const currentOpacity = activeSlotFabricObj && typeof activeSlotFabricObj.opacity === "number" ? activeSlotFabricObj.opacity : (activeObject?.opacity ?? 1);
+  const isFlippedX = Boolean(activeSlotFabricObj?.flipX ?? activeObject?.flipX);
 
   return (
     <div className="min-h-screen bg-plum text-cream flex flex-col overflow-hidden font-poppins selection:bg-mauve selection:text-cream">
@@ -329,8 +476,18 @@ export default function EditorPage() {
           </div>
         </div>
 
-        {/* Right: Zoom controls & Export Button */}
+        {/* Right: Zoom controls, Upload Photo & Export Button */}
         <div className="flex items-center space-x-2 sm:space-x-3">
+          {/* Upload Custom Photo Button */}
+          <button
+            onClick={triggerImageUpload}
+            className="inline-flex items-center gap-1.5 px-3 py-2 sm:px-4 sm:py-2.5 rounded-full bg-mauve/25 hover:bg-mauve/45 border border-dustyPink/30 text-cream font-medium text-xs sm:text-sm transition-all shadow-sm"
+            title="Upload or replace photo"
+          >
+            <Upload className="w-4 h-4 text-dustyPink" />
+            <span>Upload Photo</span>
+          </button>
+
           {/* Zoom In/Out */}
           <div className="hidden md:flex items-center bg-plum/60 rounded-full border border-dustyPink/20 p-1">
             <button
@@ -374,13 +531,13 @@ export default function EditorPage() {
       {/* MAIN WORKSPACE: CANVAS + SIDEBAR TOOLS */}
       {/* ------------------------------------------------------------- */}
       <div className="flex-grow flex flex-col md:flex-row overflow-hidden relative">
-        {/* Left / Center Viewport Area: Interactive Canvas */}
-        <div className="flex-grow flex items-center justify-center p-4 sm:p-6 overflow-auto bg-gradient-to-br from-plum-dark via-plum to-[#2A2A2A] relative">
+        {/* Left / Center Viewport Area: Interactive Canvas + Mobile Slot Selector */}
+        <div className="flex-grow flex flex-col items-center justify-between p-2 sm:p-6 overflow-auto bg-gradient-to-br from-plum-dark via-plum to-[#2A2A2A] relative">
           {/* Subtle grid pattern background */}
           <div className="absolute inset-0 opacity-10 bg-[radial-gradient(#FFF5F5_1px,transparent_1px)] [background-size:24px_24px] pointer-events-none" />
 
           {/* Interactive Fabric.js Canvas */}
-          <div className="relative z-10 transition-transform duration-200">
+          <div className="relative z-10 transition-transform duration-200 my-auto">
             <TemplateCanvas
               layout={template.layoutJson}
               interactive={true}
@@ -391,228 +548,335 @@ export default function EditorPage() {
             />
           </div>
 
-          {/* Floating Canvas Hint */}
-          <div className="absolute bottom-4 left-6 z-20 hidden sm:flex items-center gap-2 text-[11px] text-cream/70 bg-plum-dark/80 px-3.5 py-1.5 rounded-full border border-dustyPink/20 backdrop-blur-md">
+          {/* Floating Canvas Hint (Desktop) */}
+          <div className="absolute bottom-4 left-6 z-20 hidden md:flex items-center gap-2 text-[11px] text-cream/70 bg-plum-dark/80 px-3.5 py-1.5 rounded-full border border-dustyPink/20 backdrop-blur-md">
             <Move className="w-3 h-3 text-dustyPink" />
-            <span>Click any text to edit &bull; Click photo to replace &bull; Drag to reposition</span>
+            <span>Click any text to edit &bull; Tap photo slot to crop &amp; replace</span>
           </div>
+
+          {/* MOBILE-FIRST PHOTO SLOTS DOCK (Visible on mobile/tablet screens) */}
+          {photoSlots.length > 0 && (
+            <div className="md:hidden w-full max-w-lg mt-3 px-2 z-20">
+              <div className="p-3 rounded-2xl bg-plum-dark/95 border border-dustyPink/30 shadow-2xl backdrop-blur-md">
+                <div className="flex items-center justify-between px-1 mb-2">
+                  <div className="flex items-center gap-1.5 text-xs font-semibold text-dustyPink">
+                    <Crop className="w-3.5 h-3.5" />
+                    <span>Tap Photo to Crop &amp; Change</span>
+                  </div>
+                  <span className="text-[10px] text-cream/60 font-mono">
+                    {photoSlots.length} {photoSlots.length === 1 ? "Slot" : "Slots"}
+                  </span>
+                </div>
+
+                {/* Horizontal scrollable slot cards */}
+                <div className="flex items-center gap-2.5 overflow-x-auto pb-1 scrollbar-thin">
+                  {photoSlots.map((slot) => {
+                    const isSelected = selectedSlotId === slot.id;
+                    const previewImg = slotThumbnails[slot.id] || slot.currentSrc;
+                    return (
+                      <div
+                        key={slot.id}
+                        onClick={() => handleSelectSlot(slot)}
+                        className={`flex-shrink-0 flex items-center gap-2.5 p-2 rounded-xl border transition-all cursor-pointer ${
+                          isSelected
+                            ? "bg-mauve/30 border-peachPink ring-2 ring-peachPink/50 shadow-lg"
+                            : "bg-plum/60 border-dustyPink/20 hover:border-dustyPink/40"
+                        }`}
+                      >
+                        <div className="relative w-12 h-12 rounded-lg overflow-hidden border border-cream/20 bg-charcoal flex-shrink-0 shadow-inner">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={previewImg}
+                            alt={slot.label}
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+
+                        <div className="flex flex-col">
+                          <span className="text-xs font-semibold text-cream leading-tight">
+                            {slot.label}
+                          </span>
+                          <span className="text-[10px] text-dustyPink font-mono">
+                            {Math.round(slot.width)}&times;{Math.round(slot.height)} ({slot.aspectRatio}:1)
+                          </span>
+                          <div className="flex items-center gap-1 mt-1">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handlePickPhotoForSlot(slot);
+                              }}
+                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-cream text-plum hover:bg-dustyPink text-[10px] font-semibold transition-all shadow-sm"
+                            >
+                              <Upload className="w-2.5 h-2.5" />
+                              <span>Replace</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleAdjustCropForSlot(slot);
+                              }}
+                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-mauve/30 hover:bg-mauve/50 text-cream text-[10px] font-medium transition-all"
+                            >
+                              <Crop className="w-2.5 h-2.5 text-peachPink" />
+                              <span>Crop</span>
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* ----------------------------------------------------------- */}
         {/* RIGHT EDITING TOOLBAR */}
         {/* ----------------------------------------------------------- */}
-        <aside className="w-full md:w-84 lg:w-96 bg-plum-dark/95 border-t md:border-t-0 md:border-l border-dustyPink/20 p-5 overflow-y-auto max-h-[45vh] md:max-h-none flex flex-col gap-6 backdrop-blur-md z-20">
-          {/* Section 1: Replace or Upload Image */}
-          <div className="p-4 rounded-2xl bg-plum/50 border border-dustyPink/20">
-            <div className="flex items-center gap-2 mb-3 text-xs font-semibold uppercase tracking-wider text-dustyPink">
-              <ImageIcon className="w-4 h-4" />
-              <span>Photography & Images</span>
+        <aside className="w-full md:w-84 lg:w-96 bg-plum-dark/95 border-t md:border-t-0 md:border-l border-dustyPink/20 p-5 overflow-y-auto max-h-[45vh] md:max-h-none flex flex-col gap-5 backdrop-blur-md z-20">
+          {/* Section 1: Active Picture Studio */}
+          <div className="p-4 rounded-2xl bg-plum/60 border border-dustyPink/30 shadow-lg flex flex-col gap-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-dustyPink">
+                <Sliders className="w-4 h-4 text-peachPink" />
+                <span>Picture Controls</span>
+              </div>
+              {activeSlot && (
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-mauve/30 border border-peachPink/40 text-peachPink font-medium">
+                  {activeSlot.label}
+                </span>
+              )}
             </div>
 
-            <button
-              onClick={triggerImageUpload}
-              className="w-full py-2.5 px-4 rounded-xl bg-mauve/30 hover:bg-mauve/50 border border-dustyPink/40 text-cream text-xs font-medium flex items-center justify-center gap-2 transition-all"
-            >
-              <Upload className="w-4 h-4 text-dustyPink" />
-              <span>{activeObject?.type === "image" ? "Replace Selected Photo" : "Upload Custom Photo"}</span>
-            </button>
-            <p className="text-[11px] text-cream/60 mt-2 font-light">
-              Select any photo frame and upload your own portrait, outfit, or scenery.
-            </p>
-          </div>
-
-          {/* Section 2: Selected Element Properties */}
-          {activeObject && (
-            <div className="p-4 rounded-2xl bg-plum/70 border border-dustyPink/40 shadow-lg">
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-xs font-semibold uppercase tracking-wider text-dustyPink">
-                  Editing {activeObject.type === "textbox" ? "Typography" : "Layer"}
-                </span>
-                <button
-                  onClick={handleDeleteSelected}
-                  className="p-1.5 rounded-lg bg-red-900/40 text-red-300 hover:bg-red-800/60 transition-colors text-xs flex items-center gap-1"
-                  title="Delete element"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                  <span>Delete</span>
-                </button>
-              </div>
-
-              {/* Text Controls */}
-              {activeObject.type === "textbox" && (
-                <div className="space-y-4">
-                  {/* Font Family Selector */}
-                  <div>
-                    <label className="text-[11px] text-cream/70 block mb-1">Font Style</label>
-                    <div className="grid grid-cols-2 gap-2">
-                      <button
-                        onClick={() => updateActiveTextProp("fontFamily", "Playfair Display, serif")}
-                        className={`py-1.5 px-3 rounded-lg text-xs font-serif transition-colors border ${
-                          activeObject.fontFamily?.includes("Playfair")
-                            ? "bg-cream text-plum border-cream font-bold"
-                            : "bg-plum/60 text-cream border-dustyPink/20"
-                        }`}
-                      >
-                        Playfair Serif
-                      </button>
-                      <button
-                        onClick={() => updateActiveTextProp("fontFamily", "Poppins, sans-serif")}
-                        className={`py-1.5 px-3 rounded-lg text-xs font-sans transition-colors border ${
-                          activeObject.fontFamily?.includes("Poppins")
-                            ? "bg-cream text-plum border-cream font-bold"
-                            : "bg-plum/60 text-cream border-dustyPink/20"
-                        }`}
-                      >
-                        Poppins Clean
-                      </button>
-                    </div>
+            {activeSlot ? (
+              <>
+                {/* Active Photo Thumbnail & Meta Info */}
+                <div className="flex items-center gap-3 p-2.5 rounded-xl bg-plum-dark/70 border border-dustyPink/20">
+                  <div className="relative w-16 h-16 rounded-lg overflow-hidden border border-cream/20 bg-charcoal flex-shrink-0 shadow-inner">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={activeSlotPreview}
+                      alt={activeSlot.label}
+                      className="w-full h-full object-cover"
+                    />
                   </div>
+                  <div className="min-w-0 flex-1">
+                    <h3 className="text-xs font-bold text-cream truncate">
+                      {activeSlot.label}
+                    </h3>
+                    <p className="text-[10px] text-dustyPink font-mono mt-0.5">
+                      {Math.round(activeSlot.width)} &times; {Math.round(activeSlot.height)}px
+                    </p>
+                    <p className="text-[10px] text-cream/60 mt-0.5">
+                      Frame Aspect: {activeSlot.aspectRatio}:1
+                    </p>
+                  </div>
+                </div>
 
-                  {/* Font Size Slider */}
+                {/* Primary Action Buttons: Replace & Crop */}
+                <div className="flex flex-col gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handlePickPhotoForSlot(activeSlot)}
+                    className="w-full py-2.5 px-3 rounded-xl bg-cream hover:bg-dustyPink text-plum text-xs font-semibold transition-all shadow-md flex items-center justify-center gap-2 active:scale-98 cursor-pointer"
+                  >
+                    <Upload className="w-4 h-4 text-plum" />
+                    <span>Choose Photo from Device</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleAdjustCropForSlot(activeSlot)}
+                    className="w-full py-2 px-3 rounded-xl bg-mauve/30 hover:bg-mauve/50 border border-dustyPink/40 text-cream text-xs font-medium transition-all flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    <Crop className="w-3.5 h-3.5 text-peachPink" />
+                    <span>Adjust Crop &amp; Proportions</span>
+                  </button>
+                </div>
+
+                {/* Picture Adjustments */}
+                <div className="pt-3 border-t border-dustyPink/20 space-y-3">
+                  {/* Opacity Slider */}
                   <div>
-                    <div className="flex justify-between text-[11px] text-cream/70 mb-1">
-                      <span>Font Size</span>
-                      <span className="font-semibold">{Math.round(activeObject.fontSize || 32)}px</span>
+                    <div className="flex items-center justify-between text-[11px] text-dustyPink font-semibold uppercase tracking-wider mb-1.5">
+                      <span>Photo Opacity</span>
+                      <span className="font-mono text-cream font-bold">
+                        {Math.round(currentOpacity * 100)}%
+                      </span>
                     </div>
                     <input
                       type="range"
-                      min="16"
-                      max="140"
-                      value={activeObject.fontSize || 32}
-                      onChange={(e) => updateActiveTextProp("fontSize", parseInt(e.target.value))}
+                      min="0.1"
+                      max="1"
+                      step="0.05"
+                      value={currentOpacity}
+                      onChange={(e) => updateActiveSlotProp("opacity", parseFloat(e.target.value))}
                       className="w-full accent-mauve cursor-pointer"
                     />
                   </div>
 
-                  {/* Alignment & Text Color */}
-                  <div className="flex items-center justify-between pt-2">
-                    <div className="flex items-center gap-1 bg-plum/80 p-1 rounded-lg border border-dustyPink/20">
-                      <button
-                        onClick={() => updateActiveTextProp("textAlign", "left")}
-                        className={`p-1.5 rounded ${activeObject.textAlign === "left" ? "bg-mauve text-cream" : "text-cream/60"}`}
-                      >
-                        <AlignLeft className="w-3.5 h-3.5" />
-                      </button>
-                      <button
-                        onClick={() => updateActiveTextProp("textAlign", "center")}
-                        className={`p-1.5 rounded ${activeObject.textAlign === "center" ? "bg-mauve text-cream" : "text-cream/60"}`}
-                      >
-                        <AlignCenter className="w-3.5 h-3.5" />
-                      </button>
-                      <button
-                        onClick={() => updateActiveTextProp("textAlign", "right")}
-                        className={`p-1.5 rounded ${activeObject.textAlign === "right" ? "bg-mauve text-cream" : "text-cream/60"}`}
-                      >
-                        <AlignRight className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
+                  {/* Horizontal Flip & Reset */}
+                  <div className="flex items-center gap-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={handleToggleFlipX}
+                      className={`flex-1 py-1.5 px-2.5 rounded-lg border text-xs font-medium flex items-center justify-center gap-1.5 transition-all ${
+                        isFlippedX
+                          ? "bg-mauve text-cream border-cream shadow-sm"
+                          : "bg-plum-dark/60 text-cream/80 border-dustyPink/20 hover:border-dustyPink/40 hover:text-cream"
+                      }`}
+                      title="Mirror photo horizontally"
+                    >
+                      <FlipHorizontal className="w-3.5 h-3.5" />
+                      <span>{isFlippedX ? "Mirrored" : "Flip Horizontal"}</span>
+                    </button>
 
-                    {/* Color Swatches for Text */}
-                    <div className="flex items-center gap-1.5">
-                      {["#FFF5F5", "#F7D6D0", "#E2B4BD", "#4A4A4A", "#FFFFFF"].map((col) => (
-                        <button
-                          key={col}
-                          onClick={() => updateActiveTextProp("fill", col)}
-                          className={`w-6 h-6 rounded-full border-2 transition-transform ${
-                            activeObject.fill === col ? "scale-125 border-white shadow-md" : "border-dustyPink/40"
-                          }`}
-                          style={{ backgroundColor: col }}
-                        />
-                      ))}
-                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleResetSlotPhoto(activeSlot)}
+                      className="py-1.5 px-2.5 rounded-lg bg-plum-dark/60 hover:bg-red-950/40 border border-dustyPink/20 hover:border-red-400/40 text-cream/70 hover:text-red-300 text-xs font-medium flex items-center justify-center gap-1.5 transition-all"
+                      title="Reset to default template photo"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5" />
+                      <span>Reset</span>
+                    </button>
                   </div>
                 </div>
-              )}
+              </>
+            ) : (
+              <div className="text-center py-6">
+                <ImageIcon className="w-8 h-8 text-dustyPink/60 mx-auto mb-2" />
+                <p className="text-xs text-cream/70 mb-3">
+                  Upload a photo to place into this template.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => triggerImageUpload()}
+                  className="w-full py-2.5 px-4 rounded-xl bg-cream text-plum text-xs font-semibold flex items-center justify-center gap-2"
+                >
+                  <Upload className="w-4 h-4" />
+                  <span>Choose Photo</span>
+                </button>
+              </div>
+            )}
+          </div>
 
-              {/* Layer Ordering (Forward / Backward) */}
-              <div className="flex items-center justify-between pt-4 mt-4 border-t border-dustyPink/20 text-xs">
-                <span className="text-cream/70">Layer Stacking:</span>
+          {/* Section 2: All Template Photo Slots (for templates with multiple slots) */}
+          {photoSlots.length > 1 && (
+            <div className="p-4 rounded-2xl bg-plum/40 border border-dustyPink/20 flex flex-col gap-3">
+              <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wider text-dustyPink">
                 <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => handleLayerOrder("backward")}
-                    className="px-2.5 py-1 rounded bg-plum/60 hover:bg-mauve/30 border border-dustyPink/30 text-cream text-[11px]"
-                  >
-                    Send Back
-                  </button>
-                  <button
-                    onClick={() => handleLayerOrder("forward")}
-                    className="px-2.5 py-1 rounded bg-plum/60 hover:bg-mauve/30 border border-dustyPink/30 text-cream text-[11px]"
-                  >
-                    Bring Front
-                  </button>
+                  <Layers className="w-3.5 h-3.5" />
+                  <span>All Photo Slots</span>
                 </div>
+                <span className="text-[10px] lowercase px-2 py-0.5 rounded-full bg-mauve/20 border border-dustyPink/20 text-cream/80">
+                  {photoSlots.length} slots
+                </span>
+              </div>
+
+              <div className="space-y-2">
+                {photoSlots.map((slot) => {
+                  const isSelected = selectedSlotId === slot.id;
+                  const previewImg = slotThumbnails[slot.id] || slot.currentSrc;
+                  return (
+                    <div
+                      key={slot.id}
+                      onClick={() => handleSelectSlot(slot)}
+                      className={`p-2.5 rounded-xl border transition-all cursor-pointer flex items-center justify-between gap-2.5 ${
+                        isSelected
+                          ? "bg-mauve/30 border-peachPink ring-1 ring-peachPink/50 shadow-sm"
+                          : "bg-plum-dark/50 border-dustyPink/20 hover:border-dustyPink/40"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <div className="w-10 h-10 rounded-lg overflow-hidden border border-cream/20 bg-charcoal flex-shrink-0">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={previewImg}
+                            alt={slot.label}
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                        <div className="min-w-0">
+                          <span className="text-xs font-medium text-cream truncate block">
+                            {slot.label}
+                          </span>
+                          <span className="text-[10px] text-dustyPink font-mono block">
+                            {Math.round(slot.width)} &times; {Math.round(slot.height)}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handlePickPhotoForSlot(slot);
+                          }}
+                          className="px-2 py-1 rounded-lg bg-cream text-plum hover:bg-dustyPink text-[11px] font-semibold transition-all shadow-sm flex items-center gap-1"
+                        >
+                          <Upload className="w-2.5 h-2.5" />
+                          <span>Swap</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleAdjustCropForSlot(slot);
+                          }}
+                          className="p-1 rounded-lg bg-mauve/20 hover:bg-mauve/40 text-cream text-[10px] transition-all"
+                          title="Adjust crop"
+                        >
+                          <Crop className="w-3 h-3 text-peachPink" />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}
 
-          {/* Section 3: Add Text Layer */}
-          <div className="p-4 rounded-2xl bg-plum/50 border border-dustyPink/20">
-            <div className="flex items-center gap-2 mb-3 text-xs font-semibold uppercase tracking-wider text-dustyPink">
-              <Type className="w-4 h-4" />
-              <span>Add Typography</span>
+          {/* Section 3: Simple How-It-Works Guide */}
+          <div className="p-4 rounded-2xl bg-plum/30 border border-dustyPink/15 text-cream/70 text-xs space-y-2">
+            <div className="flex items-center gap-1.5 text-dustyPink font-semibold uppercase text-[10px] tracking-wider">
+              <Sparkles className="w-3.5 h-3.5 text-peachPink" />
+              <span>How To Create Your Story</span>
             </div>
-            <div className="grid grid-cols-3 gap-2">
-              <button
-                onClick={() => handleAddText("serif")}
-                className="py-2 px-2 rounded-xl bg-plum/60 hover:bg-mauve/40 border border-dustyPink/30 text-xs font-serif text-cream transition-all flex flex-col items-center gap-1"
-              >
-                <span className="font-bold text-sm">Aa</span>
-                <span className="text-[10px]">Title</span>
-              </button>
-              <button
-                onClick={() => handleAddText("sans")}
-                className="py-2 px-2 rounded-xl bg-plum/60 hover:bg-mauve/40 border border-dustyPink/30 text-xs font-sans text-cream transition-all flex flex-col items-center gap-1"
-              >
-                <span className="font-medium text-sm">Quote</span>
-                <span className="text-[10px]">Body</span>
-              </button>
-              <button
-                onClick={() => handleAddText("tagline")}
-                className="py-2 px-2 rounded-xl bg-plum/60 hover:bg-mauve/40 border border-dustyPink/30 text-xs text-dustyPink transition-all flex flex-col items-center gap-1"
-              >
-                <span className="font-semibold text-sm">★ •</span>
-                <span className="text-[10px]">Tagline</span>
-              </button>
-            </div>
-          </div>
-
-          {/* Section 4: Canvas Background Palette */}
-          <div className="p-4 rounded-2xl bg-plum/50 border border-dustyPink/20">
-            <div className="flex items-center gap-2 mb-3 text-xs font-semibold uppercase tracking-wider text-dustyPink">
-              <Palette className="w-4 h-4" />
-              <span>Canvas Palette</span>
-            </div>
-
-            <div className="grid grid-cols-3 gap-2">
-              {brandSwatches.map((swatch) => {
-                const isSelected = selectedBgColor.toLowerCase() === swatch.hex.toLowerCase();
-                return (
-                  <button
-                    key={swatch.hex}
-                    onClick={() => handleBackgroundColorChange(swatch.hex)}
-                    className={`py-2 px-3 rounded-xl border flex items-center gap-2 text-xs transition-all ${
-                      isSelected
-                        ? "border-cream ring-2 ring-mauve scale-105 font-bold"
-                        : "border-dustyPink/20 opacity-80 hover:opacity-100"
-                    }`}
-                    style={{ backgroundColor: swatch.hex }}
-                  >
-                    <span
-                      className={`text-[10px] ${
-                        swatch.hex === "#FFF5F5" || swatch.hex === "#F7D6D0" || swatch.hex === "#E2B4BD" || swatch.hex === "#FFFFFF"
-                          ? "text-plum font-semibold"
-                          : "text-cream"
-                      }`}
-                    >
-                      {swatch.name}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
+            <ul className="text-[11px] space-y-1.5 list-disc list-inside text-cream/80 leading-relaxed">
+              <li>Tap any photo inside the template or click a slot above.</li>
+              <li>Choose a photo from your phone or PC.</li>
+              <li>Crop and position to fit the frame perfectly.</li>
+              <li>Click <strong className="text-cream">Export Story</strong> to download in full HD (1080&times;1920).</li>
+            </ul>
           </div>
         </aside>
       </div>
+
+      {/* Exact-Proportion Image Cropper Modal */}
+      <ImageCropperModal
+        isOpen={cropperModal.isOpen}
+        imageSrc={cropperModal.imageSrc}
+        aspectRatio={cropperModal.targetSlot?.aspectRatio || 1}
+        targetWidth={cropperModal.targetSlot?.width || 600}
+        targetHeight={cropperModal.targetSlot?.height || 600}
+        slotLabel={cropperModal.targetSlot?.label || "Photo Slot"}
+        onConfirm={(croppedDataUrl) => {
+          if (cropperModal.targetSlot) {
+            applyCroppedImageToSlot(cropperModal.targetSlot, croppedDataUrl);
+          }
+          setCropperModal({ isOpen: false, imageSrc: "", targetSlot: null });
+          pendingSlotRef.current = null;
+        }}
+        onCancel={() => {
+          setCropperModal({ isOpen: false, imageSrc: "", targetSlot: null });
+          pendingSlotRef.current = null;
+        }}
+      />
     </div>
   );
 }

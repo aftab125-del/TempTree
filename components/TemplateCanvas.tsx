@@ -2,13 +2,14 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import { LayoutJson, TemplateElement } from "@/types/template";
+import { loadFabric } from "@/lib/fabric";
 import { Loader2 } from "lucide-react";
 
 interface TemplateCanvasProps {
   layout: LayoutJson;
   interactive?: boolean;
   scale?: number; // Zoom/scaling multiplier relative to 1080x1920
-  onCanvasReady?: (fabricCanvas: any) => void;
+  onCanvasReady?: (fabricCanvas: any, fabricInstance?: any) => void;
   onSelectionChange?: (selectedObject: any | null) => void;
   className?: string;
 }
@@ -19,8 +20,8 @@ interface TemplateCanvasProps {
  * Powers both the high-fidelity gallery preview renders and the full-featured
  * in-browser Instagram Story editor (1080x1920 logical canvas).
  *
- * Uses Fabric.js for canvas rendering, element transformation, text editing,
- * layer ordering, and high-res PNG export.
+ * Uses the shared Fabric.js singleton (via @/lib/fabric) to guarantee that only
+ * one Fabric module instance is ever imported and shared across the entire app.
  */
 export default function TemplateCanvas({
   layout,
@@ -30,7 +31,7 @@ export default function TemplateCanvas({
   onSelectionChange,
   className = "",
 }: TemplateCanvasProps) {
-  const canvasElRef = useRef<HTMLCanvasElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const fabricRef = useRef<any>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -40,16 +41,24 @@ export default function TemplateCanvas({
 
     const initCanvas = async () => {
       try {
-        // Dynamically import Fabric to ensure SSR compatibility
-        const { fabric } = await import("fabric");
+        setIsLoading(true);
+        // Dynamically retrieve the shared Fabric.js client-side singleton
+        const fabric = await loadFabric();
 
-        if (!canvasElRef.current || !isMounted) return;
+        if (!fabric || !containerRef.current || !isMounted) return;
 
         // Dispose existing instance if present
         if (fabricRef.current) {
-          fabricRef.current.dispose();
+          try {
+            fabricRef.current.dispose();
+          } catch (e) {
+            // cleanup
+          }
           fabricRef.current = null;
         }
+
+        // Wipe any stale Fabric canvas wrappers from DOM
+        containerRef.current.innerHTML = "";
 
         const nativeWidth = layout.width || 1080;
         const nativeHeight = layout.height || 1920;
@@ -57,11 +66,14 @@ export default function TemplateCanvas({
         const displayWidth = nativeWidth * scale;
         const displayHeight = nativeHeight * scale;
 
-        canvasInstance = new fabric.Canvas(canvasElRef.current, {
+        const canvasEl = document.createElement("canvas");
+        containerRef.current.appendChild(canvasEl);
+
+        canvasInstance = new fabric.Canvas(canvasEl, {
           width: displayWidth,
           height: displayHeight,
           backgroundColor: layout.backgroundColor || "#4A4A4A",
-          selection: interactive,
+          selection: false,
           preserveObjectStacking: true,
           renderOnAddRemove: true,
         });
@@ -86,7 +98,11 @@ export default function TemplateCanvas({
               color: c.color,
             })),
           });
-          canvasInstance.setBackgroundColor(gradient, canvasInstance.renderAll.bind(canvasInstance));
+          canvasInstance.setBackgroundColor(gradient, () => {
+            if (canvasInstance && typeof canvasInstance.renderAll === "function") {
+              canvasInstance.renderAll();
+            }
+          });
         }
 
         // Render all elements onto canvas
@@ -107,29 +123,27 @@ export default function TemplateCanvas({
                 width: el.width || 700,
                 opacity: el.opacity ?? 1,
                 angle: el.angle || 0,
-                editable: interactive,
-                selectable: interactive,
-                hasControls: interactive,
-                hasBorders: interactive,
-                cornerColor: "#E2B4BD",
-                cornerStyle: "circle",
-                cornerSize: 24,
-                transparentCorners: false,
-                borderColor: "#F7D6D0",
-                padding: 12,
+                editable: false,
+                selectable: false,
+                evented: false,
+                hasControls: false,
+                hasBorders: false,
               });
 
-              // Custom identifier for editor properties
               (textObj as any).elementId = el.id;
               (textObj as any).elementType = "text";
-              canvasInstance.add(textObj);
-              resolve(textObj);
+              if (textObj && typeof textObj.render === "function") {
+                canvasInstance.add(textObj);
+                resolve(textObj);
+              } else {
+                resolve(null);
+              }
             } else if (el.type === "image") {
-              // Load image placeholder or user photo
+              // Load image placeholder or user photo with error guards
               fabric.Image.fromURL(
                 el.src,
-                (img: any) => {
-                  if (!img) {
+                (img: any, isError: boolean) => {
+                  if (!img || isError || typeof img.render !== "function") {
                     resolve(null);
                     return;
                   }
@@ -142,22 +156,44 @@ export default function TemplateCanvas({
                   const scaleY = targetHeight / (img.height || 1);
                   const maxScale = Math.max(scaleX, scaleY);
 
-                  img.set({
-                    left: el.left,
-                    top: el.top,
-                    scaleX: maxScale,
-                    scaleY: maxScale,
-                    opacity: el.opacity ?? 1,
-                    angle: el.angle || 0,
-                    selectable: interactive,
-                    hasControls: interactive,
-                    hasBorders: interactive,
-                    cornerColor: "#E2B4BD",
-                    cornerStyle: "circle",
-                    cornerSize: 24,
-                    transparentCorners: false,
-                    borderColor: "#F7D6D0",
-                  });
+                  const isOverlay = el.id === "frame-cutout-overlay" || el.selectable === false;
+
+                  if (isOverlay) {
+                    img.set({
+                      left: el.left,
+                      top: el.top,
+                      scaleX: maxScale,
+                      scaleY: maxScale,
+                      opacity: el.opacity ?? 1,
+                      angle: el.angle || 0,
+                      selectable: false,
+                      evented: false,
+                      hasControls: false,
+                      hasBorders: false,
+                      hoverCursor: "default",
+                    });
+                  } else {
+                    img.set({
+                      left: el.left,
+                      top: el.top,
+                      scaleX: maxScale,
+                      scaleY: maxScale,
+                      opacity: el.opacity ?? 1,
+                      angle: el.angle || 0,
+                      selectable: interactive,
+                      evented: interactive,
+                      hasControls: false, // Prevents distorting circular drag handles
+                      hasBorders: true,   // Subtle selection outline
+                      borderColor: "#E2B4BD",
+                      borderScaleFactor: 2,
+                      lockMovementX: true, // Photo stays locked in slot
+                      lockMovementY: true,
+                      lockRotation: true,
+                      lockScalingX: true,
+                      lockScalingY: true,
+                      hoverCursor: interactive ? "pointer" : "default",
+                    });
+                  }
 
                   if (el.stroke) {
                     img.set({
@@ -170,9 +206,18 @@ export default function TemplateCanvas({
                   (img as any).elementType = "image";
                   (img as any).placeholderLabel = el.placeholderLabel;
                   (img as any).isPlaceholder = el.isPlaceholder;
+                  (img as any).targetWidth = targetWidth;
+                  (img as any).targetHeight = targetHeight;
+                  (img as any).aspectRatio = targetWidth / targetHeight;
+                  (img as any).originalLeft = el.left;
+                  (img as any).originalTop = el.top;
 
-                  canvasInstance.add(img);
-                  resolve(img);
+                  if (img && typeof img.render === "function") {
+                    canvasInstance.add(img);
+                    resolve(img);
+                  } else {
+                    resolve(null);
+                  }
                 },
                 { crossOrigin: "anonymous" }
               );
@@ -200,8 +245,12 @@ export default function TemplateCanvas({
 
               (rectObj as any).elementId = el.id;
               (rectObj as any).elementType = "rect";
-              canvasInstance.add(rectObj);
-              resolve(rectObj);
+              if (rectObj && typeof rectObj.render === "function") {
+                canvasInstance.add(rectObj);
+                resolve(rectObj);
+              } else {
+                resolve(null);
+              }
             } else if (el.type === "circle") {
               const circleObj = new fabric.Circle({
                 left: el.left,
@@ -225,8 +274,12 @@ export default function TemplateCanvas({
 
               (circleObj as any).elementId = el.id;
               (circleObj as any).elementType = "circle";
-              canvasInstance.add(circleObj);
-              resolve(circleObj);
+              if (circleObj && typeof circleObj.render === "function") {
+                canvasInstance.add(circleObj);
+                resolve(circleObj);
+              } else {
+                resolve(null);
+              }
             } else {
               resolve(null);
             }
@@ -235,7 +288,18 @@ export default function TemplateCanvas({
 
         await Promise.all(elementPromises);
 
-        canvasInstance.renderAll();
+        // Ensure any decorative frame cutout overlay always stays above photos
+        const canvasObjects = canvasInstance.getObjects();
+        const cutoutOverlay = canvasObjects.find(
+          (obj: any) => obj.elementId === "frame-cutout-overlay" || obj.isPlaceholder === false
+        );
+        if (cutoutOverlay && typeof canvasInstance.bringToFront === "function") {
+          canvasInstance.bringToFront(cutoutOverlay);
+        }
+
+        if (canvasInstance && typeof canvasInstance.renderAll === "function") {
+          canvasInstance.renderAll();
+        }
 
         // Selection listeners for editor mode
         if (interactive) {
@@ -248,12 +312,15 @@ export default function TemplateCanvas({
           canvasInstance.on("selection:cleared", () => {
             onSelectionChange?.(null);
           });
+          canvasInstance.on("text:changed", (e: any) => {
+            onSelectionChange?.(e.target);
+          });
         }
 
         fabricRef.current = canvasInstance;
         if (isMounted) {
           setIsLoading(false);
-          onCanvasReady?.(canvasInstance);
+          onCanvasReady?.(canvasInstance, fabric);
         }
       } catch (err) {
         console.error("Failed to initialize Fabric canvas:", err);
@@ -272,8 +339,30 @@ export default function TemplateCanvas({
         }
         fabricRef.current = null;
       }
+      if (containerRef.current) {
+        containerRef.current.innerHTML = "";
+      }
     };
-  }, [layout, interactive, scale]);
+  }, [layout, interactive]);
+
+  // Handle responsive zoom and scale changes smoothly in-place without re-creating canvas
+  useEffect(() => {
+    if (!fabricRef.current) return;
+    const nativeWidth = layout.width || 1080;
+    const nativeHeight = layout.height || 1920;
+
+    const displayWidth = nativeWidth * scale;
+    const displayHeight = nativeHeight * scale;
+
+    fabricRef.current.setDimensions({
+      width: displayWidth,
+      height: displayHeight,
+    });
+    fabricRef.current.setZoom(scale);
+    if (typeof fabricRef.current.renderAll === "function") {
+      fabricRef.current.renderAll();
+    }
+  }, [scale, layout.width, layout.height]);
 
   return (
     <div
@@ -288,7 +377,7 @@ export default function TemplateCanvas({
           <Loader2 className="w-8 h-8 animate-spin text-dustyPink" />
         </div>
       )}
-      <canvas ref={canvasElRef} />
+      <div ref={containerRef} className="w-full h-full" />
     </div>
   );
 }

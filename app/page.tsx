@@ -6,7 +6,7 @@ import TemplateCard from "@/components/TemplateCard";
 import ScrollAnimatedCardGrid from "@/components/ScrollAnimatedCardGrid";
 import templatesData from "@/data/templates.json";
 import { Template, CATEGORIES } from "@/types/template";
-import { Sparkles, ArrowRight, Grid, Wand2, Download } from "lucide-react";
+import { Sparkles, ArrowRight, Grid, Wand2, Download, Upload } from "lucide-react";
 import { Skiper31 } from "@/components/ui/skiper31";
 
 export default function HomePage() {
@@ -49,13 +49,23 @@ export default function HomePage() {
               </p>
             </div>
 
-            <Link
-              href="/gallery"
-              className="inline-flex items-center gap-2 px-6 py-3.5 rounded-full bg-cream text-plum font-semibold text-sm hover:bg-dustyPink hover:text-plum transition-all shadow-lg hover:shadow-xl transform active:scale-95 group w-fit"
-            >
-              <span>Explore All {templates.length} Templates</span>
-              <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-            </Link>
+            <div className="flex flex-wrap items-center gap-3">
+              <Link
+                href="/gallery"
+                className="inline-flex items-center gap-2 px-6 py-3.5 rounded-full bg-cream text-plum font-semibold text-sm hover:bg-dustyPink hover:text-plum transition-all shadow-lg hover:shadow-xl transform active:scale-95 group w-fit"
+              >
+                <span>Explore All {templates.length} Templates</span>
+                <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+              </Link>
+
+              <Link
+                href="/upload-template"
+                className="inline-flex items-center gap-2 px-5 py-3.5 rounded-full bg-mauve/25 hover:bg-mauve/45 border border-dustyPink/40 text-cream font-semibold text-sm transition-all shadow-md transform active:scale-95 group w-fit"
+              >
+                <Upload className="w-4 h-4 text-dustyPink group-hover:scale-110 transition-transform" />
+                <span>Upload Your Template</span>
+              </Link>
+            </div>
           </div>
 
           {/* Aesthetic Categories Quick Filter Bar */}
@@ -149,6 +159,9 @@ export default function HomePage() {
             </Link>
             <Link href="/#categories" className="hover:text-dustyPink transition-colors">
               Categories
+            </Link>
+            <Link href="/upload-template" className="hover:text-dustyPink transition-colors text-dustyPink/80 underline decoration-dotted">
+              Upload Template
             </Link>
           </div>
         </div>
