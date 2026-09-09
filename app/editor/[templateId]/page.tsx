@@ -104,6 +104,30 @@ export default function EditorPage() {
   // Hidden file input ref for image uploads
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Load session-scoped template from sessionStorage if available
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const sessionData =
+        sessionStorage.getItem(`temptree-template-${templateId}`) ||
+        (templateId && (templateId.startsWith("custom-") || templateId.startsWith("frame-"))
+          ? sessionStorage.getItem("temptree-active-template")
+          : null);
+
+      if (sessionData) {
+        const parsed = JSON.parse(sessionData);
+        if (parsed && parsed.layoutJson) {
+          setTemplate(parsed);
+          if (parsed.layoutJson.backgroundColor) {
+            setSelectedBgColor(parsed.layoutJson.backgroundColor);
+          }
+        }
+      }
+    } catch (err) {
+      console.warn("Could not load template from sessionStorage:", err);
+    }
+  }, [templateId]);
+
   // Load and cache the shared Fabric.js singleton once on mount
   useEffect(() => {
     loadFabric().then((loaded) => {
@@ -459,9 +483,10 @@ export default function EditorPage() {
           <Link
             href="/gallery"
             className="p-2 rounded-full hover:bg-mauve/30 text-cream transition-colors flex items-center gap-1.5 text-xs font-semibold"
+            title="Upload another template"
           >
             <ArrowLeft className="w-4 h-4" />
-            <span className="hidden sm:inline">Gallery</span>
+            <span className="hidden sm:inline">New Template</span>
           </Link>
 
           <div className="h-4 w-px bg-dustyPink/30 hidden sm:block" />

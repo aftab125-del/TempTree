@@ -8,6 +8,7 @@ import templatesData from "@/data/templates.json";
 import { Template, CATEGORIES } from "@/types/template";
 import { Sparkles, ArrowRight, Grid, Wand2, Download, Upload } from "lucide-react";
 import { Skiper31 } from "@/components/ui/skiper31";
+import HowItWorksStepper from "@/components/HowItWorksStepper";
 
 export default function HomePage() {
   const templates: Template[] = templatesData as Template[];
@@ -27,10 +28,11 @@ export default function HomePage() {
       <SakuraScrollHero />
 
       {/* ------------------------------------------------------------- */}
-      {/* GALLERY PREVIEW SECTION (Scrolls over fixed blooming tree)    */}
+      {/* ------------------------------------------------------------- */}
+      {/* UPLOAD & EXAMPLES SECTION (Scrolls over fixed blooming tree)  */}
       {/* ------------------------------------------------------------- */}
       <section
-        id="gallery-preview"
+        id="examples"
         className="relative z-10 text-cream py-24 px-4 sm:px-6 lg:px-8 border-t border-dustyPink/25"
       >
         <div className="max-w-7xl mx-auto">
@@ -39,97 +41,44 @@ export default function HomePage() {
             <div>
               <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-mauve/25 border border-dustyPink/40 text-cream text-xs font-semibold uppercase tracking-widest mb-3">
                 <Sparkles className="w-3.5 h-3.5 text-dustyPink" />
-                <span>Curated Story Templates</span>
+                <span>Upload &amp; Edit Engine</span>
               </div>
               <h2 className="font-playfair text-4xl sm:text-5xl font-bold tracking-tight text-cream">
-                Choose your canvas.
+                Turn any frame into your story.
               </h2>
               <p className="font-poppins text-cream/80 text-base max-w-xl mt-3 font-light">
-                Handcrafted Instagram Story layouts ready for your photography, quotes, and thoughts. No sign-up, completely free.
+                Upload any frame design, moodboard, or polaroid collage. Our automatic analyzer detects photo slots so you can swap your photos and export in full 1080&times;1920 HD.
               </p>
             </div>
 
             <div className="flex flex-wrap items-center gap-3">
               <Link
                 href="/gallery"
-                className="inline-flex items-center gap-2 px-6 py-3.5 rounded-full bg-cream text-plum font-semibold text-sm hover:bg-dustyPink hover:text-plum transition-all shadow-lg hover:shadow-xl transform active:scale-95 group w-fit"
+                className="inline-flex items-center gap-2 px-7 py-4 rounded-full bg-cream text-plum font-bold text-sm hover:bg-dustyPink hover:text-plum transition-all shadow-lg hover:shadow-xl transform active:scale-95 group w-fit"
               >
-                <span>Explore All {templates.length} Templates</span>
+                <Upload className="w-4 h-4 text-plum group-hover:scale-110 transition-transform" />
+                <span>Upload Your Template Frame</span>
                 <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-              </Link>
-
-              <Link
-                href="/upload-template"
-                className="inline-flex items-center gap-2 px-5 py-3.5 rounded-full bg-mauve/25 hover:bg-mauve/45 border border-dustyPink/40 text-cream font-semibold text-sm transition-all shadow-md transform active:scale-95 group w-fit"
-              >
-                <Upload className="w-4 h-4 text-dustyPink group-hover:scale-110 transition-transform" />
-                <span>Upload Your Template</span>
               </Link>
             </div>
           </div>
 
-          {/* Aesthetic Categories Quick Filter Bar */}
-          <div id="categories" className="flex flex-wrap items-center gap-3 mb-12">
-            <span className="text-xs uppercase tracking-widest text-dustyPink font-semibold mr-2">
-              Aesthetics:
-            </span>
-            {CATEGORIES.map((cat) => (
-              <Link
-                key={cat}
-                href={`/gallery?category=${encodeURIComponent(cat)}`}
-                className="px-4 py-2 rounded-full text-xs font-medium bg-plum-light/50 hover:bg-mauve text-cream hover:text-plum border border-dustyPink/30 hover:border-dustyPink transition-all duration-300"
-              >
-                {cat}
-              </Link>
-            ))}
+          {/* Starter Inspiration Header */}
+          <div className="mb-8">
+            <h3 className="font-playfair text-2xl font-bold text-cream">
+              Starter Inspiration
+            </h3>
+            <p className="text-xs text-cream/70 mt-1 font-light">
+              Try these pre-built sample templates directly in the editor, or upload your own frame design above.
+            </p>
           </div>
 
           {/* Template Cards Grid with Skiper-style 3D Fan-out & Scroll Glide */}
           <ScrollAnimatedCardGrid templates={previewTemplates} />
 
-          {/* Features / How It Works Strip */}
-          <div className="mt-24 pt-16 border-t border-dustyPink/20 grid grid-cols-1 md:grid-cols-3 gap-8">
-            <div className="flex items-start space-x-4 p-6 rounded-2xl bg-plum-light/25 border border-dustyPink/20">
-              <div className="w-12 h-12 rounded-2xl bg-mauve/25 border border-dustyPink/40 flex items-center justify-center flex-shrink-0">
-                <Grid className="w-6 h-6 text-dustyPink" />
-              </div>
-              <div>
-                <h3 className="font-playfair text-lg font-bold text-cream mb-1">
-                  1. Pick an Aesthetic
-                </h3>
-                <p className="text-xs text-cream/75 font-light leading-relaxed">
-                  Browse vintage polaroids, cyber Y2K stickers, soft minimal editorial, or dreamy petals.
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-start space-x-4 p-6 rounded-2xl bg-plum-light/25 border border-dustyPink/20">
-              <div className="w-12 h-12 rounded-2xl bg-mauve/25 border border-dustyPink/40 flex items-center justify-center flex-shrink-0">
-                <Wand2 className="w-6 h-6 text-dustyPink" />
-              </div>
-              <div>
-                <h3 className="font-playfair text-lg font-bold text-cream mb-1">
-                  2. Customize Inline
-                </h3>
-                <p className="text-xs text-cream/75 font-light leading-relaxed">
-                  Click to replace photos, tweak typography, add quotes, and switch background palettes effortlessly.
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-start space-x-4 p-6 rounded-2xl bg-plum-light/25 border border-dustyPink/20">
-              <div className="w-12 h-12 rounded-2xl bg-mauve/25 border border-dustyPink/40 flex items-center justify-center flex-shrink-0">
-                <Download className="w-6 h-6 text-dustyPink" />
-              </div>
-              <div>
-                <h3 className="font-playfair text-lg font-bold text-cream mb-1">
-                  3. Export High-Res PNG
-                </h3>
-                <p className="text-xs text-cream/75 font-light leading-relaxed">
-                  Download crisp 1080&times;1920 images ready to post straight to Instagram Stories without watermarks.
-                </p>
-              </div>
-            </div>
+          {/* Animated 3D Perspective Stepper: How It Works */}
+          <div className="mt-16 pt-8 border-t border-dustyPink/20">
+            <HowItWorksStepper />
           </div>
         </div>
       </section>
@@ -154,14 +103,14 @@ export default function HomePage() {
           </p>
 
           <div className="flex items-center space-x-6 text-xs text-cream/70">
-            <Link href="/gallery" className="hover:text-dustyPink transition-colors">
-              Gallery
-            </Link>
-            <Link href="/#categories" className="hover:text-dustyPink transition-colors">
-              Categories
-            </Link>
-            <Link href="/upload-template" className="hover:text-dustyPink transition-colors text-dustyPink/80 underline decoration-dotted">
+            <Link href="/gallery" className="hover:text-dustyPink transition-colors text-dustyPink font-medium">
               Upload Template
+            </Link>
+            <Link href="/#how-it-works" className="hover:text-dustyPink transition-colors">
+              How It Works
+            </Link>
+            <Link href="/#examples" className="hover:text-dustyPink transition-colors">
+              Inspiration
             </Link>
           </div>
         </div>

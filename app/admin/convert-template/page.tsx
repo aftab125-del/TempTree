@@ -404,10 +404,10 @@ export default function AdminConvertTemplatePage() {
               <Sparkles className="w-3.5 h-3.5" /> Auto-Slot Detection
             </span>
             <Link
-              href="/gallery"
+              href="/"
               className="text-blushWhite/80 hover:text-blushWhite transition-colors underline"
             >
-              Gallery
+              Home
             </Link>
           </div>
         </div>

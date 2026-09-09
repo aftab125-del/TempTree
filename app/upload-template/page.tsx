@@ -1,3 +1,3 @@
-import ConvertTemplatePage from "../admin/convert-template/page";
+import UploadTemplateFlowPage from "../gallery/page";
 
-export default ConvertTemplatePage;
+export default UploadTemplateFlowPage;

@@ -3,7 +3,7 @@
  * Handles Template specifications, Fabric.js element layouts, and Category definitions.
  */
 
-export type Category = "Y2K" | "Minimal" | "Dreamy" | "Vintage" | "Bold";
+export type Category = "Y2K" | "Minimal" | "Dreamy" | "Vintage" | "Bold" | "Custom";
 
 export const CATEGORIES: Category[] = ["Y2K", "Minimal", "Dreamy", "Vintage", "Bold"];
 

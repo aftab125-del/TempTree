@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
-import { Sparkles, Grid, Palette, Upload } from "lucide-react";
+import { Sparkles, Upload } from "lucide-react";
 
 export default function Navbar() {
   const [isScrolled, setIsScrolled] = useState(false);
@@ -44,24 +44,23 @@ export default function Navbar() {
         {/* Navigation Links */}
         <nav className="hidden md:flex items-center space-x-8 text-sm font-medium">
           <Link
-            href="/#categories"
+            href="/#how-it-works"
             className={`${
               isScrolled ? "text-plum/90 hover:text-plum" : "text-cream/90 hover:text-cream"
             } transition-colors tracking-wide`}
           >
-            Aesthetics
+            How It Works
+          </Link>
+          <Link
+            href="/#examples"
+            className={`${
+              isScrolled ? "text-plum/90 hover:text-plum" : "text-cream/90 hover:text-cream"
+            } transition-colors tracking-wide`}
+          >
+            Inspiration
           </Link>
           <Link
             href="/gallery"
-            className={`${
-              isScrolled ? "text-plum/90 hover:text-plum" : "text-cream/90 hover:text-cream"
-            } transition-colors tracking-wide flex items-center gap-1.5`}
-          >
-            <Grid className="w-4 h-4" />
-            Gallery
-          </Link>
-          <Link
-            href="/upload-template"
             className={`${
               isScrolled ? "text-plum/90 hover:text-plum" : "text-cream/90 hover:text-cream"
             } transition-colors tracking-wide flex items-center gap-1.5`}
@@ -71,31 +70,18 @@ export default function Navbar() {
           </Link>
         </nav>
 
-        {/* Action Buttons */}
+        {/* Action Button */}
         <div className="flex items-center space-x-3">
           <Link
-            href="/upload-template"
-            className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-full text-xs sm:text-sm font-medium tracking-wide transition-all border ${
-              isScrolled
-                ? "border-plum/30 bg-plum/5 hover:bg-plum/10 text-plum"
-                : "border-cream/35 bg-cream/10 hover:bg-cream/20 text-cream backdrop-blur-sm"
-            }`}
-          >
-            <Upload className="w-3.5 h-3.5" />
-            <span>Upload Template</span>
-          </Link>
-
-          <Link
             href="/gallery"
-            className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-xs sm:text-sm font-semibold tracking-wide transition-all shadow-md hover:shadow-lg transform active:scale-95 ${
+            className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-xs sm:text-sm font-semibold tracking-wide transition-all shadow-md hover:shadow-lg transform active:scale-95 ${
               isScrolled
                 ? "bg-plum text-cream hover:bg-plum-light"
                 : "bg-cream text-plum hover:bg-dustyPink hover:text-plum"
             }`}
           >
-            <Palette className="w-4 h-4" />
-            <span className="hidden sm:inline">Browse Templates</span>
-            <span className="sm:hidden">Browse</span>
+            <Upload className="w-4 h-4" />
+            <span>Upload &amp; Edit</span>
           </Link>
         </div>
       </div>
