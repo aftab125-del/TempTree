@@ -9,6 +9,7 @@ import ShowcaseReveal from "@/components/ShowcaseReveal";
 import FeaturesBento from "@/components/FeaturesBento";
 import StarterTemplates2DCanvas from "@/components/StarterTemplates2DCanvas";
 import FAQSection from "@/components/FAQSection";
+import FinalCTASection from "@/components/FinalCTASection";
 
 export default function HomePage() {
   return (
@@ -88,6 +89,12 @@ export default function HomePage() {
       {/* PART 3: SKIPER31 TEXT & MOOD SCROLL ANIMATION                  */}
       {/* ------------------------------------------------------------- */}
       <Skiper31 className="relative z-10 border-t border-dustyPink/20" />
+
+      {/* PART 4: FINAL AMBIENT CALL-TO-ACTION (React Bits CTA 5)       */}
+      {/* ------------------------------------------------------------- */}
+      <div className="border-t border-dustyPink/20">
+        <FinalCTASection />
+      </div>
 
       {/* Minimal Footer */}
       <footer className="relative z-10 bg-plum-dark/90 text-cream/80 py-12 px-4 border-t border-dustyPink/25 text-center">
