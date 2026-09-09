@@ -8,6 +8,7 @@ import HowItWorksStepper from "@/components/HowItWorksStepper";
 import ShowcaseReveal from "@/components/ShowcaseReveal";
 import FeaturesBento from "@/components/FeaturesBento";
 import StarterTemplates2DCanvas from "@/components/StarterTemplates2DCanvas";
+import FAQSection from "@/components/FAQSection";
 
 export default function HomePage() {
   return (
@@ -75,6 +76,11 @@ export default function HomePage() {
           <div className="mt-20 pt-8 border-t border-dustyPink/20">
             <FeaturesBento />
           </div>
+
+          {/* Searchable FAQ with Topic Filters & Instant Results (React Bits faq-8) */}
+          <div className="mt-20 pt-8 border-t border-dustyPink/20">
+            <FAQSection />
+          </div>
         </div>
       </section>
  
@@ -106,6 +112,9 @@ export default function HomePage() {
             </Link>
             <Link href="/#examples" className="hover:text-dustyPink transition-colors">
               Inspiration
+            </Link>
+            <Link href="/#faq" className="hover:text-dustyPink transition-colors">
+              FAQ
             </Link>
           </div>
         </div>
