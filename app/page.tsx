@@ -9,6 +9,7 @@ import { Template, CATEGORIES } from "@/types/template";
 import { Sparkles, ArrowRight, Grid, Wand2, Download, Upload } from "lucide-react";
 import { Skiper31 } from "@/components/ui/skiper31";
 import HowItWorksStepper from "@/components/HowItWorksStepper";
+import ShowcaseReveal from "@/components/ShowcaseReveal";
 
 export default function HomePage() {
   const templates: Template[] = templatesData as Template[];
@@ -79,6 +80,11 @@ export default function HomePage() {
           {/* Animated 3D Perspective Stepper: How It Works */}
           <div className="mt-16 pt-8 border-t border-dustyPink/20">
             <HowItWorksStepper />
+          </div>
+
+          {/* Interactive Before/After Showcase Reveal (skiper71 Image Reveal pattern) */}
+          <div className="mt-20 pt-8 border-t border-dustyPink/20">
+            <ShowcaseReveal />
           </div>
         </div>
       </section>
