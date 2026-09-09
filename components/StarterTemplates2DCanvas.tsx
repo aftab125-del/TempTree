@@ -52,7 +52,7 @@ export const StarterTemplates2DCanvas: React.FC = () => {
   }, [templates]);
 
   return (
-    <div className="w-full">
+    <div id="inspiration" className="w-full">
       {/* Section Header */}
       <div className="flex flex-col sm:flex-row sm:items-end justify-between mb-8 gap-4">
         <div>

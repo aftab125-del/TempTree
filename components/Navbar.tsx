@@ -42,7 +42,7 @@ export default function Navbar() {
         </Link>
 
         {/* Navigation Links */}
-        <nav className="hidden md:flex items-center space-x-8 text-sm font-medium">
+        <nav className="hidden lg:flex items-center space-x-7 text-sm font-medium">
           <Link
             href="/#how-it-works"
             className={`${
@@ -52,21 +52,36 @@ export default function Navbar() {
             How It Works
           </Link>
           <Link
-            href="/#examples"
+            href="/#showcase"
             className={`${
               isScrolled ? "text-plum/90 hover:text-plum" : "text-cream/90 hover:text-cream"
             } transition-colors tracking-wide`}
           >
-            Inspiration
+            Showcase
           </Link>
           <Link
-            href="/gallery"
+            href="/#features"
             className={`${
               isScrolled ? "text-plum/90 hover:text-plum" : "text-cream/90 hover:text-cream"
-            } transition-colors tracking-wide flex items-center gap-1.5`}
+            } transition-colors tracking-wide`}
           >
-            <Upload className="w-4 h-4" />
-            Upload Template
+            Features
+          </Link>
+          <Link
+            href="/#inspiration"
+            className={`${
+              isScrolled ? "text-plum/90 hover:text-plum" : "text-cream/90 hover:text-cream"
+            } transition-colors tracking-wide`}
+          >
+            Templates
+          </Link>
+          <Link
+            href="/#faq"
+            className={`${
+              isScrolled ? "text-plum/90 hover:text-plum" : "text-cream/90 hover:text-cream"
+            } transition-colors tracking-wide`}
+          >
+            FAQ
           </Link>
         </nav>
 
