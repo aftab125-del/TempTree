@@ -127,12 +127,12 @@ export default function SakuraScrollHero() {
   const [activeCategoryIndex, setActiveCategoryIndex] = useState<number>(0);
 
   // ============================================================================
-  // STEP 1: Preload frames on mount
+  // STEP 1: Preload frame 1 immediately, then stream remaining frames in background
   // ============================================================================
   useEffect(() => {
     let isMounted = true;
     let loadedCount = 0;
-    const images: HTMLImageElement[] = [];
+    const images: HTMLImageElement[] = new Array(TOTAL_FRAMES);
 
     if (typeof window !== "undefined") {
       isCoarsePointerRef.current = window.matchMedia("(hover: none) and (pointer: coarse)").matches;
@@ -140,33 +140,49 @@ export default function SakuraScrollHero() {
       laidOutWRef.current = window.innerWidth;
     }
 
-    for (let i = 1; i <= TOTAL_FRAMES; i++) {
-      const padIndex = String(i).padStart(3, "0");
-      const img = new Image();
-      img.src = `/sakura-frames/ezgif-frame-${padIndex}.png`;
-
-      const handleImageLoadOrError = () => {
-        if (!isMounted) return;
-        loadedCount++;
-        const pct = Math.floor((loadedCount / TOTAL_FRAMES) * 100);
-        setLoadProgress(pct);
-
-        if (i === 1) {
-          handleResize();
-          drawFrame(0);
-        }
-
-        if (loadedCount >= TOTAL_FRAMES) {
-          setIsLoaded(true);
-        }
-      };
-
-      img.onload = handleImageLoadOrError;
-      img.onerror = handleImageLoadOrError;
-      images.push(img);
-    }
-
     imagesRef.current = images;
+
+    // Load Frame 1 with high priority
+    const firstImg = new Image();
+    firstImg.src = "/sakura-frames/ezgif-frame-001.webp";
+    images[0] = firstImg;
+
+    const onFirstFrameReady = () => {
+      if (!isMounted) return;
+      loadedCount++;
+      setLoadProgress(Math.floor((loadedCount / TOTAL_FRAMES) * 100));
+
+      // Make hero and scrolling interactive immediately!
+      setIsLoaded(true);
+      handleResize();
+      drawFrame(0);
+
+      // Progressively load remaining frames 2..300 in the background
+      loadRemainingFrames();
+    };
+
+    firstImg.onload = onFirstFrameReady;
+    firstImg.onerror = onFirstFrameReady; // Fallback so page never hangs
+
+    // Background progressive loader for frames 2..300
+    const loadRemainingFrames = () => {
+      for (let i = 2; i <= TOTAL_FRAMES; i++) {
+        const index = i - 1;
+        const padIndex = String(i).padStart(3, "0");
+        const img = new Image();
+        img.src = `/sakura-frames/ezgif-frame-${padIndex}.webp`;
+
+        const onFrameLoaded = () => {
+          if (!isMounted) return;
+          loadedCount++;
+          setLoadProgress(Math.floor((loadedCount / TOTAL_FRAMES) * 100));
+        };
+
+        img.onload = onFrameLoaded;
+        img.onerror = onFrameLoaded;
+        images[index] = img;
+      }
+    };
 
     return () => {
       isMounted = false;
