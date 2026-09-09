@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
-import { CATEGORIES } from "@/types/template";
 import { ArrowDown, Sparkles } from "lucide-react";
 
 /**
@@ -28,9 +27,37 @@ interface Chapter {
 
 const CHAPTERS: Chapter[] = [
   { id: "sprout", num: "01", label: "Sprout", progress: 0.0 },
-  { id: "aesthetics", num: "02", label: "Aesthetics", progress: 0.45 },
+  { id: "studio", num: "02", label: "Atelier", progress: 0.45 },
   { id: "bloom", num: "03", label: "Full Bloom", progress: 0.88 },
   { id: "gallery", num: "04", label: "Canvases", progress: 1.0 },
+];
+
+interface StudioPillar {
+  icon: string;
+  title: string;
+  desc: string;
+  tag: string;
+}
+
+const STUDIO_PILLARS: StudioPillar[] = [
+  {
+    icon: "🌿",
+    title: "100% Independent",
+    desc: "No paywalls, subscriptions, or corporate bloat. Free forever.",
+    tag: "Free & Open",
+  },
+  {
+    icon: "🛡️",
+    title: "Private By Design",
+    desc: "Runs 100% in your browser. Your photos never touch a cloud server.",
+    tag: "Client-Side Only",
+  },
+  {
+    icon: "🌸",
+    title: "Lossless 1080×1920",
+    desc: "Pixel-perfect cutout detection and uncompressed HD PNG export.",
+    tag: "Retina Story Output",
+  },
 ];
 
 interface PetalParticle {
@@ -235,7 +262,7 @@ export default function SakuraScrollHero() {
       wordmarkRef.current.style.pointerEvents = op > 0.1 ? "auto" : "none";
     }
 
-    // 4. Category Section (0.28 to 0.72)
+    // 4. Independent Studio Section (0.28 to 0.72)
     if (categoryOverlayRef.current) {
       const isCatActive = progress >= 0.28 && progress <= 0.72;
       categoryOverlayRef.current.style.opacity = isCatActive ? "1" : "0";
@@ -252,24 +279,16 @@ export default function SakuraScrollHero() {
           spread = exit;
         }
 
-        const rawProgress = Math.min(1, Math.max(0, (progress - 0.34) / (0.64 - 0.34)));
-        const catIdx = Math.min(CATEGORIES.length - 1, Math.floor(rawProgress * CATEGORIES.length));
-        if (catIdx !== currentCategoryRef.current) {
-          currentCategoryRef.current = catIdx;
-          setActiveCategoryIndex(catIdx);
-        }
-
-        // Skiper31 3D fan-out, arch, and tilt on the 5 category pills
-        pillRefs.current.forEach((pill, idx) => {
+        // Subtle 3D perspective fan-out and depth on the 3 glass cards
+        pillRefs.current.slice(0, 3).forEach((pill, idx) => {
           if (!pill) return;
-          const dist = idx - 2; // -2, -1, 0, 1, 2
-          const isCurrent = idx === catIdx;
+          const dist = idx - 1; // -1 (left), 0 (center), 1 (right)
 
-          const x = dist * 48 * spread;
-          const y = Math.abs(dist) * 16 * spread + (isCurrent ? -6 : 0);
-          const rotZ = dist * 7 * spread;
-          const rotY = -dist * 12 * spread;
-          const scale = (isCurrent ? 1.2 : 0.95) - (0.12 * spread);
+          const x = dist * 28 * spread;
+          const y = Math.abs(dist) * 8 * spread;
+          const rotZ = dist * 3.5 * spread;
+          const rotY = -dist * 8 * spread;
+          const scale = 1 - 0.04 * spread;
 
           pill.style.transform = `translate3d(${x.toFixed(1)}px, ${y.toFixed(1)}px, 0) rotateZ(${rotZ.toFixed(1)}deg) rotateY(${rotY.toFixed(1)}deg) scale(${scale.toFixed(3)})`;
         });
@@ -404,13 +423,6 @@ export default function SakuraScrollHero() {
     window.scrollTo({ top: targetScroll, behavior: "smooth" });
   };
 
-  const jumpToCategory = (idx: number) => {
-    const container = containerRef.current;
-    if (!container) return;
-    const total = container.offsetHeight - window.innerHeight;
-    const targetProgress = 0.36 + (idx / (CATEGORIES.length - 1)) * 0.26;
-    window.scrollTo({ top: container.offsetTop + targetProgress * total, behavior: "smooth" });
-  };
 
   return (
     <>
@@ -601,57 +613,72 @@ export default function SakuraScrollHero() {
             </button>
           </div>
 
-          {/* OVERLAY 2: Categories (Direct DOM Opacity, React state only for active pill) */}
+          {/* OVERLAY 2: Bespoke Studio Signature & Philosophy */}
           <div
             ref={categoryOverlayRef}
             className="absolute inset-0 z-20 flex flex-col items-center justify-center text-center px-4 will-change-transform transform-gpu"
             style={{ opacity: 0, pointerEvents: "none" }}
           >
-            <div className="max-w-xl flex flex-col items-center">
-              <span className="text-xs uppercase tracking-[0.3em] text-peachPink font-semibold mb-3 px-3.5 py-1 rounded-full bg-charcoal/80 border border-dustyMauve/40 backdrop-blur-md">
-                Curated Dimensions
-              </span>
-
-              <h2 className="font-playfair text-3xl sm:text-4xl text-blushWhite font-normal italic mb-6 drop-shadow-md">
-                Every mood, distilled.
-              </h2>
-
-              {/* 3D Perspective Category Pills Deck */}
-              <div
-                className="flex flex-wrap items-center justify-center gap-3 sm:gap-5 my-3 pointer-events-auto"
-                style={{ perspective: "1000px" }}
-              >
-                {CATEGORIES.map((cat, idx) => {
-                  const isCurrent = idx === activeCategoryIndex;
-                  return (
-                    <button
-                      key={cat}
-                      ref={(el) => {
-                        pillRefs.current[idx] = el;
-                      }}
-                      onClick={() => jumpToCategory(idx)}
-                      className={`relative transition-colors duration-300 will-change-transform transform-gpu cursor-pointer px-5 py-2.5 rounded-full text-sm sm:text-base tracking-wide ${
-                        isCurrent
-                          ? "bg-blushWhite text-charcoal font-bold shadow-2xl shadow-charcoal/60 border-2 border-blushWhite ring-4 ring-dustyMauve/70"
-                          : "bg-charcoal/80 hover:bg-charcoal text-blushWhite/75 hover:text-blushWhite border border-dustyMauve/30 backdrop-blur-sm"
-                      }`}
-                      aria-label={`Select ${cat} aesthetic`}
-                    >
-                      <span className="font-playfair">
-                        {isCurrent ? `✦ ${cat} ✦` : cat}
-                      </span>
-                    </button>
-                  );
-                })}
+            <div className="max-w-4xl flex flex-col items-center">
+              {/* Glassmorphic Eyebrow Badge */}
+              <div className="inline-flex items-center gap-2.5 px-4 sm:px-5 py-1.5 rounded-full bg-[#181316]/75 border border-white/20 backdrop-blur-xl mb-4 shadow-xl">
+                <Sparkles className="w-3.5 h-3.5 text-peachPink animate-pulse" />
+                <span className="text-[11px] sm:text-xs uppercase tracking-[0.28em] text-peachPink font-semibold">
+                  ✦ INDEPENDENT STUDIO &middot; 桜の工房 ✦
+                </span>
               </div>
 
-              {/* Dynamic Mood Description Pill */}
-              <div className="mt-8 transition-all duration-300 text-blushWhite font-poppins text-xs sm:text-sm tracking-wide bg-charcoal/85 border border-dustyMauve/30 px-6 py-2.5 rounded-full backdrop-blur-md shadow-xl max-w-md">
-                {activeCategoryIndex === 0 && "★ Y2K: Chrome stars, cyber nostalgia, and bold vibrant glow."}
-                {activeCategoryIndex === 1 && "◇ Minimal: Timeless editorial typography with serene white space."}
-                {activeCategoryIndex === 2 && "🌸 Dreamy: Ethereal sakura gradients, soft blush & glowing quotes."}
-                {activeCategoryIndex === 3 && "🎞 Vintage: Nostalgic Polaroid borders, 35mm film grain & retro dates."}
-                {activeCategoryIndex === 4 && "⚡ Bold: High-impact streetwear contrast & powerful headline blocks."}
+              {/* Author / Creator Headline */}
+              <h2 className="font-playfair text-3xl sm:text-4xl md:text-5xl lg:text-[3.25rem] text-blushWhite font-normal tracking-tight mb-3 drop-shadow-[0_4px_16px_rgba(0,0,0,0.6)] max-w-2xl leading-[1.18]">
+                A bespoke story editor, <br className="hidden sm:inline" />
+                <span className="italic text-peachPink font-medium">made by Aftab Kathat.</span>
+              </h2>
+
+              {/* Signature Philosophy Quote */}
+              <p className="font-poppins text-sm sm:text-base text-blushWhite/80 italic font-light tracking-wide max-w-lg mb-8 drop-shadow-md">
+                &ldquo;Every memory deserves a beautiful frame.&rdquo;
+              </p>
+
+              {/* 3 Glassmorphic Pillars */}
+              <div
+                className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 sm:gap-5 w-full max-w-3xl pointer-events-auto"
+                style={{ perspective: "1000px" }}
+              >
+                {STUDIO_PILLARS.map((pillar, idx) => (
+                  <div
+                    key={pillar.title}
+                    ref={(el) => {
+                      pillRefs.current[idx] = el as any;
+                    }}
+                    className="group relative rounded-2xl p-5 bg-gradient-to-b from-white/[0.12] via-white/[0.06] to-white/[0.02] border border-white/20 hover:border-peachPink/60 backdrop-blur-2xl shadow-[0_8px_32px_0_rgba(0,0,0,0.45)] transition-all duration-300 hover:bg-white/[0.16] hover:-translate-y-1.5 flex flex-col items-center text-center overflow-hidden will-change-transform transform-gpu"
+                  >
+                    {/* Top edge specular reflection sheen */}
+                    <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-white/40 to-transparent" />
+
+                    {/* Glowing radial ambient background */}
+                    <div className="absolute -top-10 left-1/2 -translate-x-1/2 w-24 h-24 rounded-full bg-peachPink/15 blur-xl pointer-events-none group-hover:bg-peachPink/25 transition-colors" />
+
+                    {/* Icon Bubble */}
+                    <div className="relative w-11 h-11 rounded-xl bg-white/[0.08] border border-white/20 flex items-center justify-center text-xl mb-3 shadow-inner group-hover:scale-110 transition-transform">
+                      {pillar.icon}
+                    </div>
+
+                    {/* Title */}
+                    <h3 className="relative font-playfair text-base sm:text-lg font-bold text-blushWhite tracking-wide mb-1.5 group-hover:text-cream transition-colors">
+                      {pillar.title}
+                    </h3>
+
+                    {/* Description */}
+                    <p className="relative font-poppins text-xs text-blushWhite/75 font-light leading-relaxed mb-3">
+                      {pillar.desc}
+                    </p>
+
+                    {/* Micro Pill Tag */}
+                    <span className="relative mt-auto inline-block text-[10px] font-mono tracking-widest uppercase text-peachPink/90 bg-white/[0.06] px-2.5 py-0.5 rounded-full border border-white/10">
+                      {pillar.tag}
+                    </span>
+                  </div>
+                ))}
               </div>
             </div>
           </div>

@@ -3,7 +3,6 @@ import Link from "next/link";
 import Navbar from "@/components/Navbar";
 import SakuraScrollHero from "@/components/SakuraScrollHero";
 import { Sparkles, ArrowRight, Upload } from "lucide-react";
-import { Skiper31 } from "@/components/ui/skiper31";
 import HowItWorksStepper from "@/components/HowItWorksStepper";
 import ShowcaseReveal from "@/components/ShowcaseReveal";
 import FeaturesBento from "@/components/FeaturesBento";
@@ -84,11 +83,6 @@ export default function HomePage() {
           </div>
         </div>
       </section>
- 
-      {/* ------------------------------------------------------------- */}
-      {/* PART 3: SKIPER31 TEXT & MOOD SCROLL ANIMATION                  */}
-      {/* ------------------------------------------------------------- */}
-      <Skiper31 className="relative z-10 border-t border-dustyPink/20" />
 
       {/* PART 4: FINAL AMBIENT CALL-TO-ACTION (React Bits CTA 5)       */}
       {/* ------------------------------------------------------------- */}
@@ -97,33 +91,45 @@ export default function HomePage() {
       </div>
 
       {/* Minimal Footer */}
-      <footer className="relative z-10 bg-plum-dark/90 text-cream/80 py-12 px-4 border-t border-dustyPink/25 text-center">
-        <div className="max-w-7xl mx-auto flex flex-col items-center justify-between gap-6 sm:flex-row">
-          <div className="flex items-center space-x-2">
-            <Sparkles className="w-5 h-5 text-dustyPink" />
-            <span className="font-playfair text-xl font-bold text-cream">
-              TempTree
-            </span>
+      <footer className="relative z-10 bg-plum-dark/95 text-cream/80 py-14 px-4 sm:px-6 lg:px-8 border-t border-dustyPink/25 text-center sm:text-left">
+        <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6">
+          <div className="flex flex-col items-center sm:items-start gap-1">
+            <div className="flex items-center space-x-2">
+              <Sparkles className="w-4 h-4 text-dustyPink" />
+              <span className="font-playfair text-xl font-bold text-cream">
+                TempTree
+              </span>
+              <span className="text-[10px] uppercase font-mono tracking-widest text-peachPink/80 ml-2 px-2 py-0.5 rounded-full bg-white/5 border border-white/10">
+                桜の工房
+              </span>
+            </div>
+            <p className="text-xs font-light text-cream/60 font-poppins mt-1">
+              A bespoke story editor, made by Aftab Kathat. Private by design.
+            </p>
           </div>
 
-          <p className="text-xs font-light text-cream/60 font-poppins">
-            Aesthetic Story Studio &middot; Crafted with Next.js 14, TypeScript & Tailwind CSS
-          </p>
-
-          <div className="flex items-center space-x-6 text-xs text-cream/70">
+          <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-xs text-cream/70">
             <Link href="/gallery" className="hover:text-dustyPink transition-colors text-dustyPink font-medium">
               Upload Template
             </Link>
             <Link href="/#how-it-works" className="hover:text-dustyPink transition-colors">
               How It Works
             </Link>
-            <Link href="/#examples" className="hover:text-dustyPink transition-colors">
-              Inspiration
-            </Link>
             <Link href="/#faq" className="hover:text-dustyPink transition-colors">
               FAQ
             </Link>
+            <Link href="/privacy" className="hover:text-dustyPink transition-colors">
+              Privacy Policy
+            </Link>
+            <Link href="/terms" className="hover:text-dustyPink transition-colors">
+              Terms of Service
+            </Link>
           </div>
+        </div>
+
+        <div className="max-w-7xl mx-auto mt-8 pt-6 border-t border-dustyPink/15 flex flex-col sm:flex-row items-center justify-between gap-3 text-[11px] text-cream/50 font-light">
+          <p>&copy; {new Date().getFullYear()} TempTree &middot; All rights reserved.</p>
+          <p className="tracking-wide">Runs 100% in your browser &middot; Zero cloud photo uploads</p>
         </div>
       </footer>
     </main>

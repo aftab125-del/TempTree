@@ -6,6 +6,7 @@ import { InfiniteGrid, InfiniteGridItem } from "@/components/ui/skiper5";
 import templatesData from "@/data/templates.json";
 import { Template } from "@/types/template";
 import { Sparkles, Upload, ArrowRight, Grid, Move, Compass } from "lucide-react";
+import KageTextReveal from "@/components/ui/KageTextReveal";
 
 export const StarterTemplates2DCanvas: React.FC = () => {
   const templates = templatesData as Template[];
@@ -56,13 +57,18 @@ export const StarterTemplates2DCanvas: React.FC = () => {
       {/* Section Header */}
       <div className="flex flex-col sm:flex-row sm:items-end justify-between mb-8 gap-4">
         <div>
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-mauve/20 border border-dustyPink/30 text-peachPink text-xs font-semibold uppercase tracking-wider mb-2">
-            <Compass className="w-3.5 h-3.5" />
+          <div className="inline-flex items-center gap-2.5 px-3.5 py-1 rounded-full bg-mauve/20 border border-dustyPink/30 text-peachPink text-xs font-semibold uppercase tracking-[0.2em] mb-2.5 backdrop-blur-sm">
+            <span className="w-1.5 h-1.5 rounded-full bg-peachPink shadow-[0_0_8px_#F7D6D0] animate-pulse" />
             <span>Interactive 2D Inspiration Canvas</span>
           </div>
-          <h3 className="font-playfair text-3xl sm:text-4xl font-bold text-cream">
+          <KageTextReveal
+            as="h3"
+            japaneseAccent="ひらめきの見本帳 · INSPIRATION ARCHIVE"
+            className="text-3xl sm:text-4xl font-bold text-cream block"
+            glow
+          >
             Explore Starter Templates
-          </h3>
+          </KageTextReveal>
           <p className="font-poppins text-cream/70 text-sm max-w-xl mt-1.5 font-light">
             Pan across the infinite 2D canvas in any direction. Test-drive any curated template directly in the editor, or toss in your own frame.
           </p>
