@@ -10,6 +10,7 @@ import { Sparkles, ArrowRight, Grid, Wand2, Download, Upload } from "lucide-reac
 import { Skiper31 } from "@/components/ui/skiper31";
 import HowItWorksStepper from "@/components/HowItWorksStepper";
 import ShowcaseReveal from "@/components/ShowcaseReveal";
+import FeaturesBento from "@/components/FeaturesBento";
 
 export default function HomePage() {
   const templates: Template[] = templatesData as Template[];
@@ -85,6 +86,11 @@ export default function HomePage() {
           {/* Interactive Before/After Showcase Reveal (skiper71 Image Reveal pattern) */}
           <div className="mt-20 pt-8 border-t border-dustyPink/20">
             <ShowcaseReveal />
+          </div>
+
+          {/* Core Capabilities Bento Grid (React Bits bento-25, 16, 5, 7) */}
+          <div className="mt-20 pt-8 border-t border-dustyPink/20">
+            <FeaturesBento />
           </div>
         </div>
       </section>
