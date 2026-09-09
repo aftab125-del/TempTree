@@ -8,6 +8,7 @@ import { Template, LayoutJson } from "@/types/template";
 import TemplateCanvas from "@/components/TemplateCanvas";
 import ImageCropperModal from "@/components/ImageCropperModal";
 import { loadFabric } from "@/lib/fabric";
+import { getTemplate } from "@/lib/template-store";
 import {
   ArrowLeft,
   Download,
@@ -104,28 +105,26 @@ export default function EditorPage() {
   // Hidden file input ref for image uploads
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Load session-scoped template from sessionStorage if available
+  // Load session-scoped template from IndexedDB (with sessionStorage fallback)
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    try {
-      const sessionData =
-        sessionStorage.getItem(`temptree-template-${templateId}`) ||
-        (templateId && (templateId.startsWith("custom-") || templateId.startsWith("frame-"))
-          ? sessionStorage.getItem("temptree-active-template")
-          : null);
+    if (typeof window === "undefined" || !templateId) return;
+    let isCancelled = false;
 
-      if (sessionData) {
-        const parsed = JSON.parse(sessionData);
-        if (parsed && parsed.layoutJson) {
-          setTemplate(parsed);
-          if (parsed.layoutJson.backgroundColor) {
-            setSelectedBgColor(parsed.layoutJson.backgroundColor);
-          }
+    getTemplate(templateId as string).then((loadedTemplate) => {
+      if (isCancelled || !loadedTemplate) return;
+      if (loadedTemplate && loadedTemplate.layoutJson) {
+        setTemplate(loadedTemplate);
+        if (loadedTemplate.layoutJson.backgroundColor) {
+          setSelectedBgColor(loadedTemplate.layoutJson.backgroundColor);
         }
       }
-    } catch (err) {
-      console.warn("Could not load template from sessionStorage:", err);
-    }
+    }).catch((err) => {
+      console.warn("Could not load template from template store:", err);
+    });
+
+    return () => {
+      isCancelled = true;
+    };
   }, [templateId]);
 
   // Load and cache the shared Fabric.js singleton once on mount
