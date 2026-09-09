@@ -3,9 +3,11 @@ import Link from "next/link";
 import Navbar from "@/components/Navbar";
 import SakuraScrollHero from "@/components/SakuraScrollHero";
 import TemplateCard from "@/components/TemplateCard";
+import ScrollAnimatedCardGrid from "@/components/ScrollAnimatedCardGrid";
 import templatesData from "@/data/templates.json";
 import { Template, CATEGORIES } from "@/types/template";
 import { Sparkles, ArrowRight, Grid, Wand2, Download } from "lucide-react";
+import { Skiper31 } from "@/components/ui/skiper31";
 
 export default function HomePage() {
   const templates: Template[] = templatesData as Template[];
@@ -72,12 +74,8 @@ export default function HomePage() {
             ))}
           </div>
 
-          {/* Template Cards Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-8">
-            {previewTemplates.map((template) => (
-              <TemplateCard key={template.id} template={template} />
-            ))}
-          </div>
+          {/* Template Cards Grid with Skiper-style 3D Fan-out & Scroll Glide */}
+          <ScrollAnimatedCardGrid templates={previewTemplates} />
 
           {/* Features / How It Works Strip */}
           <div className="mt-24 pt-16 border-t border-dustyPink/20 grid grid-cols-1 md:grid-cols-3 gap-8">
@@ -125,6 +123,11 @@ export default function HomePage() {
           </div>
         </div>
       </section>
+ 
+      {/* ------------------------------------------------------------- */}
+      {/* PART 3: SKIPER31 TEXT & MOOD SCROLL ANIMATION                  */}
+      {/* ------------------------------------------------------------- */}
+      <Skiper31 className="relative z-10 border-t border-dustyPink/20" />
 
       {/* Minimal Footer */}
       <footer className="relative z-10 bg-plum-dark/90 text-cream/80 py-12 px-4 border-t border-dustyPink/25 text-center">

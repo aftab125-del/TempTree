@@ -7,21 +7,18 @@ import { ArrowDown, Sparkles } from "lucide-react";
 /**
  * SakuraScrollHero Component
  * -------------------------------------------------------------
- * Enhanced with Scroll-World Engine features:
- * - Physics-based continuous RAF Lerp scrubbing (smooth momentum interpolation)
- * - Atmospheric depth layer: drifting sakura petals & ambient lighting with scroll parallax
- * - Linger dwell easing (lingerEase) for storytelling milestones
- * - Interactive Chapter Route indicator (01 Sprout -> 02 Aesthetics -> 03 Full Bloom -> 04 Canvases)
- * - Hairline flight progress bar with radiant glow
- * - Mobile touch & resize hardening (ignoring URL bar height fluctuations)
- * - Pinned full-viewport background on homepage (freezes on frame 300 at 100% scroll)
+ * High-performance, 60fps/120fps GPU-optimized scroll hero:
+ * - On-demand RAF loop: runs ONLY when actively scrolling or momentum settling; IDLE (0% CPU) otherwise.
+ * - Direct DOM manipulation for high-frequency properties (progress bar, parallax, opacity).
+ * - React state updates strictly quarantined to threshold crossing (zero 60fps re-render churn).
+ * - Aspect-ratio cover canvas redraws ONLY when rounded frame index changes.
+ * - Fixed background freezes on frame 300 at 100% scroll.
  */
 
 const TOTAL_FRAMES = 300;
-const LERP_FACTOR = 0.16; // Silky Apple-style scrub momentum
-const LERP_EPSILON = 0.0004;
+const LERP_FACTOR = 0.18;
+const LERP_EPSILON = 0.0005;
 
-// Story milestone chapters
 interface Chapter {
   id: string;
   num: string;
@@ -36,7 +33,6 @@ const CHAPTERS: Chapter[] = [
   { id: "gallery", num: "04", label: "Canvases", progress: 1.0 },
 ];
 
-// Seeded atmospheric floating petal data
 interface PetalParticle {
   id: number;
   left: number;
@@ -71,35 +67,46 @@ export default function SakuraScrollHero() {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
-  // In-memory array of preloaded frames
+  // Direct DOM refs for 0ms latency hardware updates (no React re-renders)
+  const progressBarRef = useRef<HTMLDivElement>(null);
+  const petalParallaxRef = useRef<HTMLDivElement>(null);
+  const wordmarkRef = useRef<HTMLDivElement>(null);
+  const categoryOverlayRef = useRef<HTMLDivElement>(null);
+  const transitionPromptRef = useRef<HTMLDivElement>(null);
+  const pillRefs = useRef<(HTMLButtonElement | null)[]>([]);
+
+  // Frame cache
   const imagesRef = useRef<HTMLImageElement[]>([]);
 
-  // Physics scrub engine values
+  // Scrub engine values
   const targetProgressRef = useRef<number>(0);
   const currentProgressRef = useRef<number>(0);
   const rafHandleRef = useRef<number | null>(null);
   const lastRenderedIndexRef = useRef<number>(-1);
+
+  // Discrete state tracker refs
+  const currentChapterRef = useRef<number>(0);
+  const currentCategoryRef = useRef<number>(0);
 
   // Viewport & device detection
   const laidOutWRef = useRef<number>(0);
   const isCoarsePointerRef = useRef<boolean>(false);
   const reduceMotionRef = useRef<boolean>(false);
 
-  // React state for UI rendering
+  // React state (strictly for low-frequency discrete UI updates)
   const [loadProgress, setLoadProgress] = useState<number>(0);
   const [isLoaded, setIsLoaded] = useState<boolean>(false);
-  const [uiProgress, setUiProgress] = useState<number>(0);
   const [activeChapterIndex, setActiveChapterIndex] = useState<number>(0);
+  const [activeCategoryIndex, setActiveCategoryIndex] = useState<number>(0);
 
   // ============================================================================
-  // STEP 1: Preload all 300 frames on mount
+  // STEP 1: Preload frames on mount
   // ============================================================================
   useEffect(() => {
     let isMounted = true;
     let loadedCount = 0;
     const images: HTMLImageElement[] = [];
 
-    // Detect coarse pointers (touchscreens) and reduced-motion preference
     if (typeof window !== "undefined") {
       isCoarsePointerRef.current = window.matchMedia("(hover: none) and (pointer: coarse)").matches;
       reduceMotionRef.current = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -117,7 +124,6 @@ export default function SakuraScrollHero() {
         const pct = Math.floor((loadedCount / TOTAL_FRAMES) * 100);
         setLoadProgress(pct);
 
-        // Instantly draw frame 0 as soon as the first frame loads
         if (i === 1) {
           handleResize();
           drawFrame(0);
@@ -141,18 +147,17 @@ export default function SakuraScrollHero() {
   }, []);
 
   // ============================================================================
-  // STEP 2: Draw a specific frame to the Canvas with 'cover' aspect ratio
+  // STEP 2: Draw frame with aspect ratio cover
   // ============================================================================
   const drawFrame = (frameIndex: number) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const ctx = canvas.getContext("2d");
+    const ctx = canvas.getContext("2d", { alpha: false });
     if (!ctx) return;
 
     const clampedIndex = Math.max(0, Math.min(TOTAL_FRAMES - 1, frameIndex));
     let img = imagesRef.current[clampedIndex];
 
-    // Fallback to nearest loaded frame below if pending
     if (!img || !img.complete || img.naturalWidth === 0) {
       for (let j = clampedIndex - 1; j >= 0; j--) {
         const candidate = imagesRef.current[j];
@@ -167,8 +172,6 @@ export default function SakuraScrollHero() {
 
     const canvasWidth = canvas.width;
     const canvasHeight = canvas.height;
-
-    // Aspect ratio 'cover' math
     const imgWidth = img.naturalWidth;
     const imgHeight = img.naturalHeight;
     const imgRatio = imgWidth / imgHeight;
@@ -189,17 +192,15 @@ export default function SakuraScrollHero() {
       offsetX = (canvasWidth - drawWidth) / 2;
     }
 
-    ctx.clearRect(0, 0, canvasWidth, canvasHeight);
     ctx.drawImage(img, offsetX, offsetY, drawWidth, drawHeight);
     lastRenderedIndexRef.current = clampedIndex;
   };
 
-  // Resize canvas according to viewport dimensions & DPR
   const handleResize = () => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    const dpr = window.devicePixelRatio || 1;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2); // Cap at 2x DPR for buttery performance
     const displayWidth = window.innerWidth;
     const displayHeight = window.innerHeight;
 
@@ -213,7 +214,90 @@ export default function SakuraScrollHero() {
   };
 
   // ============================================================================
-  // STEP 3: Scroll-World Continuous RAF Lerp Engine
+  // STEP 3: Ultra-low latency Direct DOM updates (No React state churn)
+  // ============================================================================
+  const updateDOMOverlays = (progress: number) => {
+    // 1. Progress bar scale
+    if (progressBarRef.current) {
+      progressBarRef.current.style.transform = `scaleX(${progress})`;
+    }
+
+    // 2. Petals parallax
+    if (petalParallaxRef.current) {
+      petalParallaxRef.current.style.transform = `translate3d(0, ${-progress * 60}px, 0)`;
+    }
+
+    // 3. Wordmark (0.0 to 0.15)
+    if (wordmarkRef.current) {
+      const op = progress <= 0.08 ? 1 : progress <= 0.16 ? 1 - (progress - 0.08) / 0.08 : 0;
+      wordmarkRef.current.style.opacity = String(op);
+      wordmarkRef.current.style.transform = `translateY(${(1 - op) * -20}px)`;
+      wordmarkRef.current.style.pointerEvents = op > 0.1 ? "auto" : "none";
+    }
+
+    // 4. Category Section (0.28 to 0.72)
+    if (categoryOverlayRef.current) {
+      const isCatActive = progress >= 0.28 && progress <= 0.72;
+      categoryOverlayRef.current.style.opacity = isCatActive ? "1" : "0";
+      categoryOverlayRef.current.style.pointerEvents = isCatActive ? "auto" : "none";
+
+      if (isCatActive) {
+        // Dynamic entrance fan-out (0.28 to 0.38) and exit fan-out (0.62 to 0.72)
+        let spread = 0;
+        if (progress < 0.38) {
+          const entrance = Math.min(1, Math.max(0, (progress - 0.28) / 0.10));
+          spread = 1 - entrance;
+        } else if (progress > 0.62) {
+          const exit = Math.min(1, Math.max(0, (progress - 0.62) / 0.10));
+          spread = exit;
+        }
+
+        const rawProgress = Math.min(1, Math.max(0, (progress - 0.34) / (0.64 - 0.34)));
+        const catIdx = Math.min(CATEGORIES.length - 1, Math.floor(rawProgress * CATEGORIES.length));
+        if (catIdx !== currentCategoryRef.current) {
+          currentCategoryRef.current = catIdx;
+          setActiveCategoryIndex(catIdx);
+        }
+
+        // Skiper31 3D fan-out, arch, and tilt on the 5 category pills
+        pillRefs.current.forEach((pill, idx) => {
+          if (!pill) return;
+          const dist = idx - 2; // -2, -1, 0, 1, 2
+          const isCurrent = idx === catIdx;
+
+          const x = dist * 48 * spread;
+          const y = Math.abs(dist) * 16 * spread + (isCurrent ? -6 : 0);
+          const rotZ = dist * 7 * spread;
+          const rotY = -dist * 12 * spread;
+          const scale = (isCurrent ? 1.2 : 0.95) - (0.12 * spread);
+
+          pill.style.transform = `translate3d(${x.toFixed(1)}px, ${y.toFixed(1)}px, 0) rotateZ(${rotZ.toFixed(1)}deg) rotateY(${rotY.toFixed(1)}deg) scale(${scale.toFixed(3)})`;
+        });
+      }
+    }
+
+    // 5. Transition Prompt (0.80 to 0.94)
+    if (transitionPromptRef.current) {
+      const isPromptActive = progress >= 0.80 && progress < 0.94;
+      transitionPromptRef.current.style.opacity = isPromptActive ? "1" : "0";
+      transitionPromptRef.current.style.pointerEvents = isPromptActive ? "auto" : "none";
+    }
+
+    // 6. Chapter Dots
+    let chIdx = 0;
+    for (let i = 0; i < CHAPTERS.length; i++) {
+      if (progress >= CHAPTERS[i].progress - 0.08) {
+        chIdx = i;
+      }
+    }
+    if (chIdx !== currentChapterRef.current) {
+      currentChapterRef.current = chIdx;
+      setActiveChapterIndex(chIdx);
+    }
+  };
+
+  // ============================================================================
+  // STEP 4: On-Demand RAF Loop (Zero CPU when idle)
   // ============================================================================
   useEffect(() => {
     if (!isLoaded) return;
@@ -221,9 +305,7 @@ export default function SakuraScrollHero() {
     handleResize();
     drawFrame(0);
 
-    let lastUiSync = 0;
-
-    const tick = (now: number) => {
+    const tick = () => {
       const reduce = reduceMotionRef.current;
       const target = targetProgressRef.current;
       let current = currentProgressRef.current;
@@ -233,12 +315,12 @@ export default function SakuraScrollHero() {
       if (Math.abs(delta) > LERP_EPSILON) {
         current += delta * (reduce ? 1 : LERP_FACTOR);
         currentProgressRef.current = current;
-      } else if (current !== target) {
+      } else {
         current = target;
         currentProgressRef.current = target;
       }
 
-      // Check if user has scrolled past the hero container (progress >= 1.0)
+      // Render frame
       if (current >= 0.999 && target >= 1.0) {
         if (lastRenderedIndexRef.current !== TOTAL_FRAMES - 1) {
           drawFrame(TOTAL_FRAMES - 1);
@@ -250,27 +332,24 @@ export default function SakuraScrollHero() {
         }
       }
 
-      // Sync UI state every ~32ms (30fps) to keep React re-renders silky without clogging RAF
-      if (now - lastUiSync > 32 || current === 0 || current >= 1.0) {
-        setUiProgress(current);
+      // Update styles directly on DOM
+      updateDOMOverlays(current);
 
-        // Update active chapter
-        let activeIdx = 0;
-        for (let i = 0; i < CHAPTERS.length; i++) {
-          if (current >= CHAPTERS[i].progress - 0.08) {
-            activeIdx = i;
-          }
-        }
-        setActiveChapterIndex(activeIdx);
-        lastUiSync = now;
+      // Stop RAF when motion has completely settled
+      if (Math.abs(target - current) <= LERP_EPSILON) {
+        rafHandleRef.current = null;
+        return;
       }
 
       rafHandleRef.current = requestAnimationFrame(tick);
     };
 
-    rafHandleRef.current = requestAnimationFrame(tick);
+    const startTickIfNeeded = () => {
+      if (rafHandleRef.current === null) {
+        rafHandleRef.current = requestAnimationFrame(tick);
+      }
+    };
 
-    // Raw scroll position listener: computes targetProgressRef
     const onScroll = () => {
       const container = containerRef.current;
       if (!container) return;
@@ -282,9 +361,10 @@ export default function SakuraScrollHero() {
       const currentScroll = -rect.top;
       const progress = Math.min(1, Math.max(0, currentScroll / totalScrollableDistance));
       targetProgressRef.current = progress;
+
+      startTickIfNeeded();
     };
 
-    // Mobile address-bar immune resize handler
     const onResize = () => {
       if (isCoarsePointerRef.current && window.innerWidth === laidOutWRef.current) {
         return;
@@ -304,37 +384,11 @@ export default function SakuraScrollHero() {
       window.removeEventListener("orientationchange", onResize);
       if (rafHandleRef.current !== null) {
         cancelAnimationFrame(rafHandleRef.current);
+        rafHandleRef.current = null;
       }
     };
   }, [isLoaded]);
 
-  // ============================================================================
-  // STEP 4: Story Dwell & Linger Calculations (Scroll-World lingerEase)
-  // ============================================================================
-  const lingerEase = (x: number, L: number = 0.45) => {
-    const clamped = Math.min(1, Math.max(0, x));
-    const c = clamped - 0.5;
-    return (1 - L) * clamped + L * (4 * c * c * c + 0.5);
-  };
-
-  // 1. Wordmark & Tagline: Active 0% to 15%
-  const wordmarkOpacity =
-    uiProgress <= 0.08
-      ? 1
-      : uiProgress <= 0.16
-      ? 1 - (uiProgress - 0.08) / 0.08
-      : 0;
-
-  // 2. Category Names: Active 32% to 68%
-  const isCategorySectionActive = uiProgress >= 0.30 && uiProgress <= 0.70;
-  const rawCatProgress = Math.min(1, Math.max(0, (uiProgress - 0.32) / (0.68 - 0.32)));
-  const easedCatProgress = lingerEase(rawCatProgress, 0.4);
-  const activeCategoryIndex = Math.min(
-    CATEGORIES.length - 1,
-    Math.floor(easedCatProgress * CATEGORIES.length)
-  );
-
-  // Jump to specific chapter milestone
   const jumpToChapter = (chapter: Chapter) => {
     const container = containerRef.current;
     if (!container) return;
@@ -350,39 +404,43 @@ export default function SakuraScrollHero() {
     window.scrollTo({ top: targetScroll, behavior: "smooth" });
   };
 
+  const jumpToCategory = (idx: number) => {
+    const container = containerRef.current;
+    if (!container) return;
+    const total = container.offsetHeight - window.innerHeight;
+    const targetProgress = 0.36 + (idx / (CATEGORIES.length - 1)) * 0.26;
+    window.scrollTo({ top: container.offsetTop + targetProgress * total, behavior: "smooth" });
+  };
+
   return (
     <>
       {/* ------------------------------------------------------------------ */}
-      {/* SCROLL-WORLD FEATURE 1: HAIRLINE FLIGHT PROGRESS BAR               */}
+      {/* HAIRLINE FLIGHT PROGRESS BAR (Direct DOM transform)                */}
       {/* ------------------------------------------------------------------ */}
       <div className="fixed top-0 left-0 right-0 h-[2.5px] z-50 pointer-events-none bg-dustyPink/20">
         <div
-          className="h-full bg-gradient-to-r from-dustyMauve via-peachPink to-blushWhite origin-left transition-transform duration-75 ease-out shadow-[0_0_12px_rgba(226,180,189,0.8)]"
-          style={{ transform: `scaleX(${uiProgress})` }}
+          ref={progressBarRef}
+          className="h-full bg-gradient-to-r from-dustyMauve via-peachPink to-blushWhite origin-left will-change-transform transform-gpu shadow-[0_0_12px_rgba(226,180,189,0.8)]"
+          style={{ transform: "scaleX(0)" }}
         />
       </div>
 
       {/* ------------------------------------------------------------------ */}
       {/* FIXED POSITION BACKGROUND CANVAS (HOMEPAGE ONLY)                   */}
-      {/* Freezes on frame 300 once scroll reaches 100%                      */}
       {/* ------------------------------------------------------------------ */}
       <div className="fixed inset-0 w-full h-full overflow-hidden pointer-events-none z-0">
-        <canvas ref={canvasRef} className="w-full h-full object-cover block" />
+        <canvas ref={canvasRef} className="w-full h-full object-cover block will-change-transform transform-gpu" />
       </div>
 
       {/* ------------------------------------------------------------------ */}
-      {/* SCROLL-WORLD FEATURE 2: ATMOSPHERIC DEPTH & FLOATING PETALS LAYER  */}
+      {/* ATMOSPHERIC DEPTH & DRIFTING PETALS LAYER                          */}
       {/* ------------------------------------------------------------------ */}
       <div className="fixed inset-0 pointer-events-none z-[1] overflow-hidden">
-        {/* Soft Radial Ambient Lighting */}
         <div className="absolute -top-[20%] left-1/2 -translate-x-1/2 w-[900px] h-[600px] rounded-full bg-gradient-to-b from-peachPink/15 via-dustyMauve/10 to-transparent blur-3xl animate-ambient-glow" />
         <div className="absolute -bottom-[20%] right-[10%] w-[600px] h-[600px] rounded-full bg-gradient-to-t from-dustyMauve/10 to-transparent blur-3xl pointer-events-none" />
 
-        {/* Drifting Sakura Blossom Petals (with scroll parallax) */}
-        <div
-          className="absolute inset-0 transition-transform duration-100 ease-out"
-          style={{ transform: `translate3d(0, ${-uiProgress * 70}px, 0)` }}
-        >
+        {/* Petals container with direct DOM parallax */}
+        <div ref={petalParallaxRef} className="absolute inset-0 will-change-transform transform-gpu">
           {SEEDED_PETALS.map((petal) => (
             <div
               key={petal.id}
@@ -425,12 +483,12 @@ export default function SakuraScrollHero() {
       </div>
 
       {/* ------------------------------------------------------------------ */}
-      {/* FIXED DARK OVERLAY (bg-black/25) FOR HIGH CONTRAST TEXT            */}
+      {/* FIXED DARK OVERLAY (bg-black/25)                                   */}
       {/* ------------------------------------------------------------------ */}
       <div className="fixed inset-0 bg-black/25 pointer-events-none z-[2]" />
 
       {/* ------------------------------------------------------------------ */}
-      {/* SCROLL-WORLD FEATURE 3: INTERACTIVE CHAPTER ROUTE INDICATOR         */}
+      {/* CHAPTER ROUTE INDICATOR (Only re-renders on chapter change)         */}
       {/* ------------------------------------------------------------------ */}
       <aside
         aria-label="Story chapter navigation"
@@ -468,7 +526,7 @@ export default function SakuraScrollHero() {
       </aside>
 
       {/* ------------------------------------------------------------------ */}
-      {/* PRELOADER SCREEN (Themed with brand palette)                        */}
+      {/* PRELOADER SCREEN                                                   */}
       {/* ------------------------------------------------------------------ */}
       {!isLoaded && (
         <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-charcoal text-blushWhite px-6">
@@ -497,24 +555,18 @@ export default function SakuraScrollHero() {
       )}
 
       {/* ------------------------------------------------------------------ */}
-      {/* 300VH SCROLL TRACKER & TEXT OVERLAY CONTAINER                      */}
+      {/* 300VH SCROLL TRACKER & OVERLAYS CONTAINER                          */}
       {/* ------------------------------------------------------------------ */}
       <div
         ref={containerRef}
         className="relative z-10 w-full h-[300vh] selection:bg-dustyMauve selection:text-charcoal pointer-events-none"
       >
-        {/* Sticky 100vh Viewport Overlay Container */}
         <div className="sticky top-0 w-full h-screen overflow-hidden flex items-center justify-center pointer-events-none">
-          {/* ---------------------------------------------------------------- */}
-          {/* OVERLAY 1: Brand Wordmark + Tagline (0% - 15% progress)          */}
-          {/* ---------------------------------------------------------------- */}
+          {/* OVERLAY 1: Brand Wordmark (Direct DOM Opacity & Translate) */}
           <div
-            className="absolute inset-0 z-20 flex flex-col items-center justify-center text-center px-4 transition-all duration-300"
-            style={{
-              opacity: wordmarkOpacity,
-              transform: `translateY(${(1 - wordmarkOpacity) * -24}px)`,
-              pointerEvents: wordmarkOpacity > 0.1 ? "auto" : "none",
-            }}
+            ref={wordmarkRef}
+            className="absolute inset-0 z-20 flex flex-col items-center justify-center text-center px-4 will-change-transform transform-gpu"
+            style={{ opacity: 1, transform: "translateY(0px)" }}
           >
             <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-charcoal/80 border border-dustyMauve/40 backdrop-blur-md mb-4 shadow-xl">
               <Sparkles className="w-4 h-4 text-peachPink animate-pulse" />
@@ -535,7 +587,6 @@ export default function SakuraScrollHero() {
               Instagram Story Templates &middot; 1080 &times; 1920
             </p>
 
-            {/* Scroll Prompt Button */}
             <button
               onClick={() => jumpToChapter(CHAPTERS[1])}
               className="mt-12 flex flex-col items-center gap-2 text-blushWhite/80 hover:text-blushWhite transition-colors duration-300 group cursor-pointer"
@@ -550,15 +601,11 @@ export default function SakuraScrollHero() {
             </button>
           </div>
 
-          {/* ---------------------------------------------------------------- */}
-          {/* OVERLAY 2: Category Names Reveal (32% - 68% progress with linger)*/}
-          {/* ---------------------------------------------------------------- */}
+          {/* OVERLAY 2: Categories (Direct DOM Opacity, React state only for active pill) */}
           <div
-            className="absolute inset-0 z-20 flex flex-col items-center justify-center text-center px-4 transition-all duration-300"
-            style={{
-              opacity: isCategorySectionActive ? 1 : 0,
-              pointerEvents: isCategorySectionActive ? "auto" : "none",
-            }}
+            ref={categoryOverlayRef}
+            className="absolute inset-0 z-20 flex flex-col items-center justify-center text-center px-4 will-change-transform transform-gpu"
+            style={{ opacity: 0, pointerEvents: "none" }}
           >
             <div className="max-w-xl flex flex-col items-center">
               <span className="text-xs uppercase tracking-[0.3em] text-peachPink font-semibold mb-3 px-3.5 py-1 rounded-full bg-charcoal/80 border border-dustyMauve/40 backdrop-blur-md">
@@ -569,29 +616,37 @@ export default function SakuraScrollHero() {
                 Every mood, distilled.
               </h2>
 
-              {/* Category Names Highlighted One by One */}
-              <div className="flex flex-wrap items-center justify-center gap-3 sm:gap-5 my-2">
+              {/* 3D Perspective Category Pills Deck */}
+              <div
+                className="flex flex-wrap items-center justify-center gap-3 sm:gap-5 my-3 pointer-events-auto"
+                style={{ perspective: "1000px" }}
+              >
                 {CATEGORIES.map((cat, idx) => {
                   const isCurrent = idx === activeCategoryIndex;
                   return (
-                    <div
+                    <button
                       key={cat}
-                      className={`transition-all duration-500 transform ${
+                      ref={(el) => {
+                        pillRefs.current[idx] = el;
+                      }}
+                      onClick={() => jumpToCategory(idx)}
+                      className={`relative transition-colors duration-300 will-change-transform transform-gpu cursor-pointer px-5 py-2.5 rounded-full text-sm sm:text-base tracking-wide ${
                         isCurrent
-                          ? "scale-125 bg-blushWhite text-charcoal font-bold shadow-xl shadow-charcoal/50 border-2 border-blushWhite ring-4 ring-dustyMauve/60"
-                          : "scale-95 bg-charcoal/75 text-blushWhite/70 border border-dustyMauve/30 backdrop-blur-sm"
-                      } px-5 py-2.5 rounded-full text-sm sm:text-base tracking-wide`}
+                          ? "bg-blushWhite text-charcoal font-bold shadow-2xl shadow-charcoal/60 border-2 border-blushWhite ring-4 ring-dustyMauve/70"
+                          : "bg-charcoal/80 hover:bg-charcoal text-blushWhite/75 hover:text-blushWhite border border-dustyMauve/30 backdrop-blur-sm"
+                      }`}
+                      aria-label={`Select ${cat} aesthetic`}
                     >
                       <span className="font-playfair">
                         {isCurrent ? `✦ ${cat} ✦` : cat}
                       </span>
-                    </div>
+                    </button>
                   );
                 })}
               </div>
 
-              {/* Active Category Description Pill */}
-              <div className="mt-8 text-blushWhite font-poppins text-xs sm:text-sm tracking-wide bg-charcoal/85 border border-dustyMauve/30 px-6 py-2.5 rounded-full backdrop-blur-md shadow-lg max-w-md">
+              {/* Dynamic Mood Description Pill */}
+              <div className="mt-8 transition-all duration-300 text-blushWhite font-poppins text-xs sm:text-sm tracking-wide bg-charcoal/85 border border-dustyMauve/30 px-6 py-2.5 rounded-full backdrop-blur-md shadow-xl max-w-md">
                 {activeCategoryIndex === 0 && "★ Y2K: Chrome stars, cyber nostalgia, and bold vibrant glow."}
                 {activeCategoryIndex === 1 && "◇ Minimal: Timeless editorial typography with serene white space."}
                 {activeCategoryIndex === 2 && "🌸 Dreamy: Ethereal sakura gradients, soft blush & glowing quotes."}
@@ -601,14 +656,11 @@ export default function SakuraScrollHero() {
             </div>
           </div>
 
-          {/* ---------------------------------------------------------------- */}
-          {/* OVERLAY 3: Transition Prompt (80% - 94% progress)                */}
-          {/* ---------------------------------------------------------------- */}
+          {/* OVERLAY 3: Transition Prompt */}
           <div
-            className="absolute bottom-12 z-20 flex flex-col items-center text-center transition-all duration-300"
-            style={{
-              opacity: uiProgress >= 0.80 && uiProgress < 0.94 ? 1 : 0,
-            }}
+            ref={transitionPromptRef}
+            className="absolute bottom-12 z-20 flex flex-col items-center text-center will-change-transform transform-gpu"
+            style={{ opacity: 0, pointerEvents: "none" }}
           >
             <button
               onClick={() => jumpToChapter(CHAPTERS[3])}
