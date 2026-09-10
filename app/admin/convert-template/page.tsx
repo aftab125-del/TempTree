@@ -274,6 +274,9 @@ export default function AdminConvertTemplatePage() {
       hasPlusIcon: false,
       rectangularity: 1,
       area: 480000,
+      rotation: 0,
+      cx: 140 + 400,
+      cy: 360 + (previewData.placeholders.length % 4) * 120 + 300,
     };
 
     const newPlaceholders = [...previewData.placeholders, newSlot];
@@ -290,6 +293,10 @@ export default function AdminConvertTemplatePage() {
       top: p.y,
       width: p.width,
       height: p.height,
+      angle: p.rotation || 0,
+      rotation: p.rotation || 0,
+      cx: p.cx != null ? p.cx : p.x + p.width / 2,
+      cy: p.cy != null ? p.cy : p.y + p.height / 2,
       src: samplePhotos[idx % samplePhotos.length],
       placeholderLabel: newPlaceholders.length > 1 ? `Replace Photo #${idx + 1}` : "Tap to replace photo",
       isPlaceholder: true,

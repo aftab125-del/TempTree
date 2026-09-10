@@ -37,6 +37,9 @@ interface PhotoSlot {
   aspectRatio: number;
   left: number;
   top: number;
+  rotation?: number;
+  cx?: number;
+  cy?: number;
   currentSrc: string;
 }
 
@@ -67,6 +70,9 @@ export default function EditorPage() {
         const imgEl = el as any;
         const w = imgEl.width || 600;
         const h = imgEl.height || 600;
+        const rot = imgEl.rotation ?? imgEl.angle ?? 0;
+        const cx = imgEl.cx != null ? imgEl.cx : (imgEl.left || 0) + w / 2;
+        const cy = imgEl.cy != null ? imgEl.cy : (imgEl.top || 0) + h / 2;
         return {
           id: imgEl.id,
           index: idx + 1,
@@ -76,6 +82,9 @@ export default function EditorPage() {
           aspectRatio: +(w / h).toFixed(3),
           left: imgEl.left,
           top: imgEl.top,
+          rotation: rot,
+          cx,
+          cy,
           currentSrc: imgEl.src,
         };
       });
@@ -297,26 +306,22 @@ export default function EditorPage() {
 
       const slotW = slot.width;
       const slotH = slot.height;
-      const slotLeft = slot.left;
-      const slotTop = slot.top;
+      const slotAngle = slot.rotation || 0;
+      const slotCenterX = slot.cx != null ? slot.cx : slot.left + slotW / 2;
+      const slotCenterY = slot.cy != null ? slot.cy : slot.top + slotH / 2;
 
       // Automatically scale to COVER the full slot dimensions (no empty gaps)
       const coverScale = Math.max(slotW / imgW, slotH / imgH);
-      const scaledW = imgW * coverScale;
-      const scaledH = imgH * coverScale;
 
-      // Initial centered placement within slot
-      const initialLeft = slotLeft + (slotW - scaledW) / 2;
-      const initialTop = slotTop + (slotH - scaledH) / 2;
-
-      // Clip path anchored to slot dimensions in canvas space so dragging never bleeds outside
+      // Clip path anchored to slot dimensions and rotation in canvas space so dragging never bleeds outside
       const clipRect = new fabric.Rect({
-        left: slotLeft,
-        top: slotTop,
+        left: slotCenterX,
+        top: slotCenterY,
         width: slotW,
         height: slotH,
-        originX: "left",
-        originY: "top",
+        originX: "center",
+        originY: "center",
+        angle: slotAngle,
         absolutePositioned: true,
       });
 
@@ -326,15 +331,17 @@ export default function EditorPage() {
         // In-place swap preserving canvas z-index stacking
         existingObj.setElement(htmlImg);
         existingObj.set({
-          left: initialLeft,
-          top: initialTop,
+          left: slotCenterX,
+          top: slotCenterY,
+          originX: "center",
+          originY: "center",
           scaleX: coverScale,
           scaleY: coverScale,
           width: imgW,
           height: imgH,
           clipPath: clipRect,
           opacity: 1,
-          angle: 0,
+          angle: slotAngle,
           selectable: true,
           evented: true,
           hasControls: false,
@@ -350,10 +357,13 @@ export default function EditorPage() {
           moveCursor: "grabbing",
         });
 
-        (existingObj as any).slotLeft = slotLeft;
-        (existingObj as any).slotTop = slotTop;
+        (existingObj as any).slotCenterX = slotCenterX;
+        (existingObj as any).slotCenterY = slotCenterY;
+        (existingObj as any).slotAngle = slotAngle;
         (existingObj as any).slotWidth = slotW;
         (existingObj as any).slotHeight = slotH;
+        (existingObj as any).slotLeft = slot.left;
+        (existingObj as any).slotTop = slot.top;
         (existingObj as any).targetWidth = slotW;
         (existingObj as any).targetHeight = slotH;
         (existingObj as any).aspectRatio = slotW / slotH;
@@ -361,10 +371,13 @@ export default function EditorPage() {
         existingObj.setCoords();
       } else {
         const newImg = new fabric.Image(htmlImg, {
-          left: initialLeft,
-          top: initialTop,
+          left: slotCenterX,
+          top: slotCenterY,
+          originX: "center",
+          originY: "center",
           scaleX: coverScale,
           scaleY: coverScale,
+          angle: slotAngle,
           clipPath: clipRect,
           selectable: true,
           evented: true,
@@ -383,10 +396,13 @@ export default function EditorPage() {
 
         (newImg as any).elementId = slot.id;
         (newImg as any).elementType = "image";
-        (newImg as any).slotLeft = slotLeft;
-        (newImg as any).slotTop = slotTop;
+        (newImg as any).slotCenterX = slotCenterX;
+        (newImg as any).slotCenterY = slotCenterY;
+        (newImg as any).slotAngle = slotAngle;
         (newImg as any).slotWidth = slotW;
         (newImg as any).slotHeight = slotH;
+        (newImg as any).slotLeft = slot.left;
+        (newImg as any).slotTop = slot.top;
         (newImg as any).targetWidth = slotW;
         (newImg as any).targetHeight = slotH;
         (newImg as any).aspectRatio = slotW / slotH;

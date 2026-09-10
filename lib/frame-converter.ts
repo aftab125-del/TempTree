@@ -55,6 +55,141 @@ export interface DetectedSlot {
   hasPlusIcon: boolean;
   rectangularity: number;
   area: number;
+  rotation?: number; // Rotation in degrees (default: 0)
+  cx?: number; // Slot center X
+  cy?: number; // Slot center Y
+}
+
+export interface RotatedRect {
+  cx: number;
+  cy: number;
+  width: number;
+  height: number;
+  angle: number; // in degrees, normalized to (-45, 45]
+  area: number;
+}
+
+export function crossProduct(
+  a: { x: number; y: number },
+  b: { x: number; y: number },
+  c: { x: number; y: number }
+): number {
+  return (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
+}
+
+export function convexHull(points: { x: number; y: number }[]): { x: number; y: number }[] {
+  if (points.length <= 3) return points;
+  const sorted = [...points].sort((a, b) => (a.x !== b.x ? a.x - b.x : a.y - b.y));
+
+  const lower: { x: number; y: number }[] = [];
+  for (const p of sorted) {
+    while (
+      lower.length >= 2 &&
+      crossProduct(lower[lower.length - 2], lower[lower.length - 1], p) <= 0
+    ) {
+      lower.pop();
+    }
+    lower.push(p);
+  }
+
+  const upper: { x: number; y: number }[] = [];
+  for (let i = sorted.length - 1; i >= 0; i--) {
+    const p = sorted[i];
+    while (
+      upper.length >= 2 &&
+      crossProduct(upper[upper.length - 2], upper[upper.length - 1], p) <= 0
+    ) {
+      upper.pop();
+    }
+    upper.push(p);
+  }
+
+  upper.pop();
+  lower.pop();
+  return lower.concat(upper);
+}
+
+export function minAreaRect(points: { x: number; y: number }[]): RotatedRect | null {
+  if (points.length < 3) return null;
+  const hull = convexHull(points);
+  if (hull.length < 3) return null;
+
+  let minArea = Infinity;
+  let bestRect: RotatedRect | null = null;
+
+  for (let i = 0; i < hull.length; i++) {
+    const p1 = hull[i];
+    const p2 = hull[(i + 1) % hull.length];
+    const dx = p2.x - p1.x;
+    const dy = p2.y - p1.y;
+    const len = Math.hypot(dx, dy);
+    if (len === 0) continue;
+
+    const uX = dx / len;
+    const uY = dy / len;
+    const vX = -uY;
+    const vY = uX;
+
+    let minU = Infinity,
+      maxU = -Infinity;
+    let minV = Infinity,
+      maxV = -Infinity;
+
+    for (const p of hull) {
+      const u = p.x * uX + p.y * uY;
+      const v = p.x * vX + p.y * vY;
+      if (u < minU) minU = u;
+      if (u > maxU) maxU = u;
+      if (v < minV) minV = v;
+      if (v > maxV) maxV = v;
+    }
+
+    const width = maxU - minU;
+    const height = maxV - minV;
+    const area = width * height;
+
+    if (area < minArea) {
+      minArea = area;
+      let angle = (Math.atan2(uY, uX) * 180) / Math.PI;
+      let w = width;
+      let h = height;
+
+      // Normalize angle to (-45, 45] so width and height align with visual orientation
+      while (angle > 45) {
+        angle -= 90;
+        const tmp = w;
+        w = h;
+        h = tmp;
+      }
+      while (angle <= -45) {
+        angle += 90;
+        const tmp = w;
+        w = h;
+        h = tmp;
+      }
+
+      // Eliminate tiny floating point noise around zero
+      if (Math.abs(angle) < 0.5) {
+        angle = 0;
+      }
+
+      const midU = (minU + maxU) / 2;
+      const midV = (minV + maxV) / 2;
+      const cx = midU * uX + midV * vX;
+      const cy = midU * uY + midV * vY;
+
+      bestRect = {
+        cx: Math.round(cx * 10) / 10,
+        cy: Math.round(cy * 10) / 10,
+        width: Math.round(w),
+        height: Math.round(h),
+        angle: Math.round(angle * 10) / 10,
+        area: Math.round(area),
+      };
+    }
+  }
+
+  return bestRect;
 }
 
 export interface DetectionResult {
@@ -172,6 +307,7 @@ export async function detectPlaceholders(
 
       const queue = [x, y];
       visited[startIdx] = 1;
+      const points: { x: number; y: number }[] = [{ x, y }];
 
       let minX = x;
       let maxX = x;
@@ -218,18 +354,25 @@ export async function detectPlaceholders(
           if (isColorClose(baseR, baseG, baseB, nr, ng, nb, options.maxColorVariance)) {
             visited[nIdx] = 1;
             queue.push(nx, ny);
+            points.push({ x: nx, y: ny });
           }
         }
       }
 
-      const boxWidth = maxX - minX + step;
-      const boxHeight = maxY - minY + step;
-      const boxArea = boxWidth * boxHeight;
       const actualPixels = pixelCount * step * step;
+      if (actualPixels < options.minArea) continue;
+
+      // Estimate rotation & minimum-area bounding box
+      const rotatedBox = minAreaRect(points);
+      const boxWidth = rotatedBox ? rotatedBox.width : (maxX - minX + step);
+      const boxHeight = rotatedBox ? rotatedBox.height : (maxY - minY + step);
+      const boxArea = rotatedBox ? rotatedBox.area : (boxWidth * boxHeight);
+      const rotationAngle = rotatedBox ? rotatedBox.angle : 0;
+      const slotCx = rotatedBox ? rotatedBox.cx : (minX + maxX) / 2;
+      const slotCy = rotatedBox ? rotatedBox.cy : (minY + maxY) / 2;
 
       // 1. Minimum size requirement
       if (boxWidth < options.minWidth || boxHeight < options.minHeight) continue;
-      if (actualPixels < options.minArea) continue;
 
       // 2. Reject canvas-spanning background fills
       const touchesAllBorders =
@@ -259,22 +402,25 @@ export async function detectPlaceholders(
         .toUpperCase()}`;
 
       // 6. Plus-icon check
-      const centerX = Math.round((minX + maxX) / 2);
-      const centerY = Math.round((minY + maxY) / 2);
+      const centerX = Math.round(slotCx);
+      const centerY = Math.round(slotCy);
       const hasPlusIcon = options.detectPlusIcon
         ? checkPlusIcon(data, width, height, centerX, centerY, meanR, meanG, meanB, options.maxColorVariance)
         : false;
 
       candidateRegions.push({
-        x: Math.max(0, minX),
-        y: Math.max(0, minY),
-        width: Math.min(width - minX, boxWidth),
-        height: Math.min(height - minY, boxHeight),
+        x: Math.max(0, Math.round(slotCx - boxWidth / 2)),
+        y: Math.max(0, Math.round(slotCy - boxHeight / 2)),
+        width: Math.min(width - Math.max(0, Math.round(slotCx - boxWidth / 2)), boxWidth),
+        height: Math.min(height - Math.max(0, Math.round(slotCy - boxHeight / 2)), boxHeight),
         color: hexColor,
         rgb: { r: meanR, g: meanG, b: meanB },
         hasPlusIcon,
         rectangularity: Math.round(rectangularity * 100) / 100,
         area: actualPixels,
+        rotation: rotationAngle,
+        cx: Math.round(slotCx),
+        cy: Math.round(slotCy),
       });
     }
   }
@@ -341,6 +487,7 @@ export async function detectPlaceholders(
 
         const cQueue = [gx, gy];
         cVisited[mIdx] = 1;
+        const cPoints: { x: number; y: number }[] = [{ x: gx * cStep, y: gy * cStep }];
 
         let minGx = gx, maxGx = gx, minGy = gy, maxGy = gy;
         let cCount = 0;
@@ -375,16 +522,22 @@ export async function detectPlaceholders(
             if (cVisited[nIdx] || cMask[nIdx] === 0) continue;
             cVisited[nIdx] = 1;
             cQueue.push(nx, ny);
+            cPoints.push({ x: nx * cStep, y: ny * cStep });
           }
         }
 
-        const boxWidth = (maxGx - minGx + 1) * cStep;
-        const boxHeight = (maxGy - minGy + 1) * cStep;
-        const boxArea = boxWidth * boxHeight;
         const actualPixels = cCount * cStep * cStep;
+        if (actualPixels < options.minArea) continue;
+
+        const rotatedBox = minAreaRect(cPoints);
+        const boxWidth = rotatedBox ? rotatedBox.width : ((maxGx - minGx + 1) * cStep);
+        const boxHeight = rotatedBox ? rotatedBox.height : ((maxGy - minGy + 1) * cStep);
+        const boxArea = rotatedBox ? rotatedBox.area : (boxWidth * boxHeight);
+        const rotationAngle = rotatedBox ? rotatedBox.angle : 0;
+        const slotCx = rotatedBox ? rotatedBox.cx : ((minGx + maxGx + 1) * cStep / 2);
+        const slotCy = rotatedBox ? rotatedBox.cy : ((minGy + maxGy + 1) * cStep / 2);
 
         if (boxWidth < options.minWidth || boxHeight < options.minHeight) continue;
-        if (actualPixels < options.minArea) continue;
 
         const touchesAllBorders =
           minGx <= 2 &&
@@ -409,15 +562,18 @@ export async function detectPlaceholders(
           .toUpperCase()}`;
 
         candidateRegions.push({
-          x: Math.max(0, minGx * cStep),
-          y: Math.max(0, minGy * cStep),
-          width: Math.min(width - minGx * cStep, boxWidth),
-          height: Math.min(height - minGy * cStep, boxHeight),
+          x: Math.max(0, Math.round(slotCx - boxWidth / 2)),
+          y: Math.max(0, Math.round(slotCy - boxHeight / 2)),
+          width: Math.min(width - Math.max(0, Math.round(slotCx - boxWidth / 2)), boxWidth),
+          height: Math.min(height - Math.max(0, Math.round(slotCy - boxHeight / 2)), boxHeight),
           color: hexColor,
           rgb: { r: meanR, g: meanG, b: meanB },
           hasPlusIcon: false,
           rectangularity: Math.round(rectangularity * 100) / 100,
           area: actualPixels,
+          rotation: rotationAngle,
+          cx: Math.round(slotCx),
+          cy: Math.round(slotCy),
         });
       }
     }
@@ -470,15 +626,51 @@ export async function generateCutoutBuffer(
   const height = info.height;
 
   for (const p of placeholders) {
-    const startX = Math.max(0, p.x);
-    const endX = Math.min(width, p.x + p.width);
-    const startY = Math.max(0, p.y);
-    const endY = Math.min(height, p.y + p.height);
+    const angle = p.rotation || 0;
+    const cx = p.cx != null ? p.cx : p.x + p.width / 2;
+    const cy = p.cy != null ? p.cy : p.y + p.height / 2;
+    const halfW = p.width / 2;
+    const halfH = p.height / 2;
 
-    for (let y = startY; y < endY; y++) {
-      for (let x = startX; x < endX; x++) {
-        const idx = (y * width + x) * 4;
-        data[idx + 3] = 0; // Alpha = 0 (transparent)
+    if (Math.abs(angle) > 0.5) {
+      const rad = (angle * Math.PI) / 180;
+      const cos = Math.cos(rad);
+      const sin = Math.sin(rad);
+
+      // Bounding box of rotated rectangle
+      const bbW = halfW * Math.abs(cos) + halfH * Math.abs(sin);
+      const bbH = halfW * Math.abs(sin) + halfH * Math.abs(cos);
+
+      const startX = Math.max(0, Math.floor(cx - bbW));
+      const endX = Math.min(width, Math.ceil(cx + bbW));
+      const startY = Math.max(0, Math.floor(cy - bbH));
+      const endY = Math.min(height, Math.ceil(cy + bbH));
+
+      for (let y = startY; y < endY; y++) {
+        for (let x = startX; x < endX; x++) {
+          const dx = x - cx;
+          const dy = y - cy;
+          // Rotate into rectangle local space
+          const u = dx * cos + dy * sin;
+          const v = -dx * sin + dy * cos;
+
+          if (Math.abs(u) <= halfW && Math.abs(v) <= halfH) {
+            const idx = (y * width + x) * 4;
+            data[idx + 3] = 0; // Alpha = 0 (transparent)
+          }
+        }
+      }
+    } else {
+      const startX = Math.max(0, Math.floor(p.x));
+      const endX = Math.min(width, Math.ceil(p.x + p.width));
+      const startY = Math.max(0, Math.floor(p.y));
+      const endY = Math.min(height, Math.ceil(p.y + p.height));
+
+      for (let y = startY; y < endY; y++) {
+        for (let x = startX; x < endX; x++) {
+          const idx = (y * width + x) * 4;
+          data[idx + 3] = 0; // Alpha = 0 (transparent)
+        }
       }
     }
   }
@@ -550,6 +742,10 @@ export function buildTemplateRecipe(
       top: p.y,
       width: p.width,
       height: p.height,
+      angle: p.rotation || 0,
+      rotation: p.rotation || 0,
+      cx: p.cx != null ? p.cx : p.x + p.width / 2,
+      cy: p.cy != null ? p.cy : p.y + p.height / 2,
       src: samplePhotos[idx % samplePhotos.length],
       placeholderLabel: placeholders.length > 1 ? `Replace Photo #${idx + 1}` : "Tap to replace photo",
       isPlaceholder: true,

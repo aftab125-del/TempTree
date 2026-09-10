@@ -16,6 +16,9 @@ export interface BaseElement {
   height?: number;
   opacity?: number;
   angle?: number; // Rotation in degrees
+  rotation?: number; // Optional alias for angle in degrees
+  cx?: number; // Optional explicit center X coordinate
+  cy?: number; // Optional explicit center Y coordinate
   selectable?: boolean;
 }
 

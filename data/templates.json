@@ -882,5 +882,106 @@
         }
       ]
     }
+  },
+  {
+    "id": "y2k-star-girl-polaroid",
+    "name": "Star Girl Y2K Polaroid",
+    "category": "Y2K",
+    "description": "Retro Y2K digital camera and scattered tilted polaroids with aesthetic grunge background.",
+    "tags": [
+      "Frame",
+      "Aesthetic",
+      "Y2K",
+      "Polaroid",
+      "Story"
+    ],
+    "accentColor": "#E2B4BD",
+    "thumbnailUrl": "/frames/y2k-star-girl-polaroid-frame.png",
+    "layoutJson": {
+      "width": 1080,
+      "height": 1920,
+      "backgroundColor": "#4A4A4A",
+      "elements": [
+        {
+          "id": "photo-placeholder-1",
+          "type": "image",
+          "left": 468,
+          "top": 191,
+          "width": 346,
+          "height": 346,
+          "angle": -11,
+          "rotation": -11,
+          "cx": 641,
+          "cy": 364,
+          "src": "https://images.unsplash.com/photo-1522383225653-ed111181a951?w=1000&auto=format&fit=crop&q=80",
+          "placeholderLabel": "Replace Photo #1",
+          "isPlaceholder": true,
+          "stroke": "#FFF5F5",
+          "strokeWidth": 2
+        },
+        {
+          "id": "photo-placeholder-2",
+          "type": "image",
+          "left": 700,
+          "top": 661,
+          "width": 312,
+          "height": 311,
+          "angle": 10,
+          "rotation": 10,
+          "cx": 856,
+          "cy": 816,
+          "src": "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=1000&auto=format&fit=crop&q=80",
+          "placeholderLabel": "Replace Photo #2",
+          "isPlaceholder": true,
+          "stroke": "#FFF5F5",
+          "strokeWidth": 2
+        },
+        {
+          "id": "photo-placeholder-3",
+          "type": "image",
+          "left": 96,
+          "top": 768,
+          "width": 288,
+          "height": 392,
+          "angle": 0,
+          "rotation": 0,
+          "cx": 240,
+          "cy": 964,
+          "src": "https://images.unsplash.com/photo-1518895949257-7621c3c786d7?w=1000&auto=format&fit=crop&q=80",
+          "placeholderLabel": "Replace Photo #3",
+          "isPlaceholder": true,
+          "stroke": "#FFF5F5",
+          "strokeWidth": 2
+        },
+        {
+          "id": "photo-placeholder-4",
+          "type": "image",
+          "left": 614,
+          "top": 1123,
+          "width": 363,
+          "height": 365,
+          "angle": -14,
+          "rotation": -14,
+          "cx": 795,
+          "cy": 1305,
+          "src": "https://images.unsplash.com/photo-1522383225653-ed111181a951?w=1000&auto=format&fit=crop&q=80",
+          "placeholderLabel": "Replace Photo #4",
+          "isPlaceholder": true,
+          "stroke": "#FFF5F5",
+          "strokeWidth": 2
+        },
+        {
+          "id": "frame-cutout-overlay",
+          "type": "image",
+          "left": 0,
+          "top": 0,
+          "width": 1080,
+          "height": 1920,
+          "src": "/frames/y2k-star-girl-polaroid-frame.png",
+          "selectable": false,
+          "isPlaceholder": false
+        }
+      ]
+    }
   }
 ]

@@ -151,35 +151,40 @@ export default function TemplateCanvas({
                   const slotH = el.height || 880;
                   const imgW = img.width || 1;
                   const imgH = img.height || 1;
+                  const slotAngle = (el as any).rotation ?? el.angle ?? 0;
+
+                  const slotCenterX = (el as any).cx != null
+                    ? (el as any).cx
+                    : (el.left || 0) + slotW / 2;
+                  const slotCenterY = (el as any).cy != null
+                    ? (el as any).cy
+                    : (el.top || 0) + slotH / 2;
 
                   // Automatically scale to COVER the full slot dimensions
                   const coverScale = Math.max(slotW / imgW, slotH / imgH);
-                  const scaledW = imgW * coverScale;
-                  const scaledH = imgH * coverScale;
 
-                  // Initial centered placement within slot
-                  const initialLeft = (el.left || 0) + (slotW - scaledW) / 2;
-                  const initialTop = (el.top || 0) + (slotH - scaledH) / 2;
-
-                  // Clip path tied to slot dimensions so movement never bleeds outside
+                  // Clip path tied to slot dimensions and rotation so movement never bleeds outside
                   const clipRect = new fabric.Rect({
-                    left: el.left || 0,
-                    top: el.top || 0,
+                    left: slotCenterX,
+                    top: slotCenterY,
                     width: slotW,
                     height: slotH,
-                    originX: "left",
-                    originY: "top",
+                    originX: "center",
+                    originY: "center",
+                    angle: slotAngle,
                     absolutePositioned: true,
                   });
 
                   img.set({
-                    left: initialLeft,
-                    top: initialTop,
+                    left: slotCenterX,
+                    top: slotCenterY,
+                    originX: "center",
+                    originY: "center",
                     scaleX: coverScale,
                     scaleY: coverScale,
+                    angle: slotAngle,
                     clipPath: clipRect,
                     opacity: el.opacity ?? 1,
-                    angle: el.angle || 0,
                     selectable: interactive,
                     evented: interactive,
                     hasControls: false,
@@ -202,10 +207,13 @@ export default function TemplateCanvas({
                   (img as any).targetWidth = slotW;
                   (img as any).targetHeight = slotH;
                   (img as any).aspectRatio = slotW / slotH;
-                  (img as any).slotLeft = el.left || 0;
-                  (img as any).slotTop = el.top || 0;
+                  (img as any).slotCenterX = slotCenterX;
+                  (img as any).slotCenterY = slotCenterY;
+                  (img as any).slotAngle = slotAngle;
                   (img as any).slotWidth = slotW;
                   (img as any).slotHeight = slotH;
+                  (img as any).slotLeft = el.left || 0;
+                  (img as any).slotTop = el.top || 0;
 
                   resolve(img);
                 },
@@ -321,32 +329,68 @@ export default function TemplateCanvas({
             const target = e.target;
             if (!target || !target.elementId || target.elementId === "frame-cutout-overlay") return;
 
-            const slotLeft = target.slotLeft ?? target.originalLeft;
-            const slotTop = target.slotTop ?? target.originalTop;
             const slotW = target.slotWidth ?? target.targetWidth;
             const slotH = target.slotHeight ?? target.targetHeight;
+            if (slotW == null || slotH == null) return;
 
-            if (slotLeft == null || slotW == null || slotH == null) return;
+            const slotCx = target.slotCenterX ?? (target.slotLeft != null ? target.slotLeft + slotW / 2 : target.left);
+            const slotCy = target.slotCenterY ?? (target.slotTop != null ? target.slotTop + slotH / 2 : target.top);
+            const slotAngle = target.slotAngle ?? target.angle ?? 0;
 
             const scaledW = target.getScaledWidth();
             const scaledH = target.getScaledHeight();
 
-            if (scaledW >= slotW) {
-              const minLeft = slotLeft + slotW - scaledW;
-              const maxLeft = slotLeft;
-              if (target.left > maxLeft) target.left = maxLeft;
-              if (target.left < minLeft) target.left = minLeft;
-            } else {
-              target.left = slotLeft + (slotW - scaledW) / 2;
-            }
+            const maxDispX = Math.max(0, (scaledW - slotW) / 2);
+            const maxDispY = Math.max(0, (scaledH - slotH) / 2);
 
-            if (scaledH >= slotH) {
-              const minTop = slotTop + slotH - scaledH;
-              const maxTop = slotTop;
-              if (target.top > maxTop) target.top = maxTop;
-              if (target.top < minTop) target.top = minTop;
+            if (target.originX === "center" && target.originY === "center") {
+              const dx = target.left - slotCx;
+              const dy = target.top - slotCy;
+
+              if (Math.abs(slotAngle) > 0.5) {
+                const rad = (slotAngle * Math.PI) / 180;
+                const cos = Math.cos(rad);
+                const sin = Math.sin(rad);
+
+                // Project displacement into local slot coordinate axes
+                let du = dx * cos + dy * sin;
+                let dv = -dx * sin + dy * cos;
+
+                // Clamp to allowed displacement
+                du = Math.max(-maxDispX, Math.min(maxDispX, du));
+                dv = Math.max(-maxDispY, Math.min(maxDispY, dv));
+
+                // Re-project back to canvas coordinates
+                target.left = slotCx + du * cos - dv * sin;
+                target.top = slotCy + du * sin + dv * cos;
+              } else {
+                const clampedDx = Math.max(-maxDispX, Math.min(maxDispX, dx));
+                const clampedDy = Math.max(-maxDispY, Math.min(maxDispY, dy));
+                target.left = slotCx + clampedDx;
+                target.top = slotCy + clampedDy;
+              }
             } else {
-              target.top = slotTop + (slotH - scaledH) / 2;
+              // Fallback for top-left origin objects
+              const slotLeft = target.slotLeft ?? (slotCx - slotW / 2);
+              const slotTop = target.slotTop ?? (slotCy - slotH / 2);
+
+              if (scaledW >= slotW) {
+                const minLeft = slotLeft + slotW - scaledW;
+                const maxLeft = slotLeft;
+                if (target.left > maxLeft) target.left = maxLeft;
+                if (target.left < minLeft) target.left = minLeft;
+              } else {
+                target.left = slotLeft + (slotW - scaledW) / 2;
+              }
+
+              if (scaledH >= slotH) {
+                const minTop = slotTop + slotH - scaledH;
+                const maxTop = slotTop;
+                if (target.top > maxTop) target.top = maxTop;
+                if (target.top < minTop) target.top = minTop;
+              } else {
+                target.top = slotTop + (slotH - scaledH) / 2;
+              }
             }
             target.setCoords();
           });
