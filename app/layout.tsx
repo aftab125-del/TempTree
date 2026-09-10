@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Playfair_Display, Poppins } from "next/font/google";
+import AgentationProvider from "@/components/AgentationProvider";
 import "./globals.css";
 
 const playfair = Playfair_Display({
@@ -79,6 +80,7 @@ export default function RootLayout({
     <html lang="en" className={`${playfair.variable} ${poppins.variable}`}>
       <body className="min-h-screen bg-cream text-plum font-poppins selection:bg-mauve selection:text-cream antialiased">
         {children}
+        <AgentationProvider />
       </body>
     </html>
   );
