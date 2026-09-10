@@ -6,7 +6,6 @@ import { Sparkles, ArrowRight, Upload } from "lucide-react";
 import HowItWorksStepper from "@/components/HowItWorksStepper";
 import ShowcaseReveal from "@/components/ShowcaseReveal";
 import FeaturesBento from "@/components/FeaturesBento";
-import StarterTemplates2DCanvas from "@/components/StarterTemplates2DCanvas";
 import FAQSection from "@/components/FAQSection";
 import FinalCTASection from "@/components/FinalCTASection";
 
@@ -59,11 +58,8 @@ export default function HomePage() {
             </div>
           </div>
 
-          {/* 2D Infinite Drag & Scroll Canvas (Skiper5 Pattern) */}
-          <StarterTemplates2DCanvas />
-
           {/* Animated 3D Perspective Stepper: How It Works */}
-          <div className="mt-16 pt-8 border-t border-dustyPink/20">
+          <div className="pt-8 border-t border-dustyPink/20">
             <HowItWorksStepper />
           </div>
 

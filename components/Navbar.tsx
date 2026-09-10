@@ -104,9 +104,9 @@ export default function Navbar() {
             isScrolled={isScrolled}
           />
           <KageNavLink
-            href="/#inspiration"
+            href="/gallery"
             label="Templates"
-            alt="型録 · CANVASES"
+            alt="型録 · GALLERY"
             isScrolled={isScrolled}
           />
           <KageNavLink
