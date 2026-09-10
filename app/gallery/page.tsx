@@ -24,6 +24,7 @@ import templatesData from "@/data/templates.json";
 import { Template } from "@/types/template";
 import { DetectedSlot } from "@/lib/frame-converter";
 import { saveTemplate } from "@/lib/template-store";
+import TemplateDesignGuidelines from "@/components/TemplateDesignGuidelines";
 
 interface PreviewData {
   placeholders: DetectedSlot[];
@@ -452,6 +453,9 @@ export default function UploadTemplateFlowPage() {
                 </div>
               )}
             </div>
+
+            {/* Template Design Guidelines & Rules */}
+            <TemplateDesignGuidelines />
 
             {/* Template Name Input */}
             <div>
