@@ -327,7 +327,7 @@ export default function TemplateCanvas({
         if (interactive) {
           canvasInstance.on("object:moving", (e: any) => {
             const target = e.target;
-            if (!target || !target.elementId || target.elementId === "frame-cutout-overlay") return;
+            if (!target || !target.elementId || target.elementId === "frame-cutout-overlay" || target.elementId === "slot-adjuster-rect") return;
 
             const slotW = target.slotWidth ?? target.targetWidth;
             const slotH = target.slotHeight ?? target.targetHeight;

@@ -8,7 +8,7 @@ import { Template, LayoutJson } from "@/types/template";
 import TemplateCanvas from "@/components/TemplateCanvas";
 import ImageCropperModal from "@/components/ImageCropperModal";
 import { loadFabric } from "@/lib/fabric";
-import { getTemplate } from "@/lib/template-store";
+import { getTemplate, saveTemplate } from "@/lib/template-store";
 import {
   ArrowLeft,
   Download,
@@ -115,6 +115,17 @@ export default function EditorPage() {
   // Cached Fabric module reference to guarantee singleton usage across all operations
   const fabricModuleRef = useRef<any>(null);
 
+  // Slot Adjustment Mode State
+  const [isAdjustingSlot, setIsAdjustingSlot] = useState<boolean>(false);
+  const [adjustingGeometry, setAdjustingGeometry] = useState<{
+    width: number;
+    height: number;
+    cx: number;
+    cy: number;
+    rotation: number;
+  } | null>(null);
+  const adjusterRectRef = useRef<any>(null);
+
   // Hidden file input ref for image uploads
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -181,7 +192,7 @@ export default function EditorPage() {
   // Selection change listener from Fabric.js
   const handleSelectionChange = (obj: any | null) => {
     setActiveObject(obj);
-    if (obj && (obj as any).elementId) {
+    if (obj && (obj as any).elementId && (obj as any).elementId !== "slot-adjuster-rect") {
       const match = photoSlots.find((s) => s.id === (obj as any).elementId);
       if (match) {
         setSelectedSlotId(match.id);
@@ -242,6 +253,9 @@ export default function EditorPage() {
   // PHOTO SLOTS & CROPPING HANDLERS
   // ============================================================================
   const handleSelectSlot = (slot: PhotoSlot) => {
+    if (isAdjustingSlot && adjusterRectRef.current) {
+      stopAdjustSlotMode();
+    }
     setSelectedSlotId(slot.id);
     if (!fabricCanvas) return;
     const objects = fabricCanvas.getObjects();
@@ -509,6 +523,15 @@ export default function EditorPage() {
   // ============================================================================
   const handleExportPNG = () => {
     if (!fabricCanvas) return;
+
+    if (isAdjustingSlot) {
+      stopAdjustSlotMode();
+    }
+    const existingAdjuster = fabricCanvas.getObjects().find((o: any) => o.elementId === "slot-adjuster-rect");
+    if (existingAdjuster) {
+      fabricCanvas.remove(existingAdjuster);
+    }
+
     setIsExporting(true);
 
     // Deselect active object to remove border handles before snapshot
@@ -551,46 +574,366 @@ export default function EditorPage() {
   const currentOpacity = activeSlotFabricObj && typeof activeSlotFabricObj.opacity === "number" ? activeSlotFabricObj.opacity : (activeObject?.opacity ?? 1);
   const isFlippedX = Boolean(activeSlotFabricObj?.flipX ?? activeObject?.flipX);
 
-  const normalizeAngle = (ang: number) => {
-    let a = ang % 360;
-    if (a > 180) a -= 360;
-    if (a < -180) a += 360;
-    return Math.round(a * 10) / 10;
+  // ============================================================================
+  // SLOT ADJUSTMENT MODE (direct geometry editing: x, y, width, height, angle)
+  // ============================================================================
+  const startAdjustSlotMode = (slotToAdjust?: PhotoSlot) => {
+    if (!fabricCanvas) return;
+    const fabric = fabricModuleRef.current || (window as any).fabric;
+    if (!fabric) return;
+
+    const slot = slotToAdjust || activeSlot;
+    if (!slot) return;
+
+    // If an adjuster rect already exists, remove it cleanly first
+    if (adjusterRectRef.current) {
+      fabricCanvas.remove(adjusterRectRef.current);
+      adjusterRectRef.current = null;
+    }
+
+    const slotW = slot.width;
+    const slotH = slot.height;
+    const slotCx = slot.cx != null ? slot.cx : slot.left + slotW / 2;
+    const slotCy = slot.cy != null ? slot.cy : slot.top + slotH / 2;
+    const slotAngle = slot.rotation || 0;
+
+    // Find the photo object for this slot
+    const photoObj = fabricCanvas.getObjects().find((o: any) => o.elementId === slot.id);
+    if (photoObj) {
+      // Temporarily disable photo interaction so clicks go to the adjuster rect handles
+      photoObj.set({
+        selectable: false,
+        evented: false,
+      });
+    }
+
+    // Create the interactive adjuster rectangle on top of canvas
+    const adjusterRect = new fabric.Rect({
+      left: slotCx,
+      top: slotCy,
+      width: slotW,
+      height: slotH,
+      originX: "center",
+      originY: "center",
+      angle: slotAngle,
+      fill: "rgba(247, 214, 208, 0.15)",
+      stroke: "#F7D6D0",
+      strokeWidth: 2,
+      strokeDashArray: [10, 6],
+      selectable: true,
+      evented: true,
+      hasControls: true,
+      hasBorders: true,
+      borderColor: "#F7D6D0",
+      borderScaleFactor: 2,
+      cornerColor: "#E2B4BD",
+      cornerStrokeColor: "#4A1D2F",
+      cornerSize: 22,
+      cornerStyle: "circle",
+      transparentCorners: false,
+      padding: 0,
+      hoverCursor: "move",
+      moveCursor: "grabbing",
+    });
+
+    (adjusterRect as any).elementId = "slot-adjuster-rect";
+    (adjusterRect as any).isSlotAdjuster = true;
+    (adjusterRect as any).targetSlotId = slot.id;
+
+    // Helper to sync changes from adjusterRect to photo, clipPath, and state
+    const applyGeometryUpdate = () => {
+      const scaledW = Math.max(20, Math.round(adjusterRect.getScaledWidth()));
+      const scaledH = Math.max(20, Math.round(adjusterRect.getScaledHeight()));
+      const currentCx = Math.round(adjusterRect.left);
+      const currentCy = Math.round(adjusterRect.top);
+      let currentAngle = adjusterRect.angle % 360;
+      if (currentAngle > 180) currentAngle -= 360;
+      if (currentAngle < -180) currentAngle += 360;
+      currentAngle = Math.round(currentAngle * 10) / 10;
+
+      // 1. Update clipPath
+      if (photoObj && photoObj.clipPath) {
+        photoObj.clipPath.set({
+          left: currentCx,
+          top: currentCy,
+          width: scaledW,
+          height: scaledH,
+          angle: currentAngle,
+          originX: "center",
+          originY: "center",
+          scaleX: 1,
+          scaleY: 1,
+        });
+        photoObj.clipPath.setCoords();
+      }
+
+      // 2. Update photo object (recomputing cover scale for the new dimensions)
+      if (photoObj) {
+        const imgW = photoObj.width || 1;
+        const imgH = photoObj.height || 1;
+        const coverScale = Math.max(scaledW / imgW, scaledH / imgH);
+
+        photoObj.set({
+          left: currentCx,
+          top: currentCy,
+          scaleX: coverScale,
+          scaleY: coverScale,
+          angle: currentAngle,
+        });
+
+        (photoObj as any).slotCenterX = currentCx;
+        (photoObj as any).slotCenterY = currentCy;
+        (photoObj as any).slotAngle = currentAngle;
+        (photoObj as any).slotWidth = scaledW;
+        (photoObj as any).slotHeight = scaledH;
+        (photoObj as any).slotLeft = Math.round(currentCx - scaledW / 2);
+        (photoObj as any).slotTop = Math.round(currentCy - scaledH / 2);
+        (photoObj as any).targetWidth = scaledW;
+        (photoObj as any).targetHeight = scaledH;
+        (photoObj as any).aspectRatio = +(scaledW / scaledH).toFixed(3);
+        photoObj.setCoords();
+      }
+
+      setAdjustingGeometry({
+        width: scaledW,
+        height: scaledH,
+        cx: currentCx,
+        cy: currentCy,
+        rotation: currentAngle,
+      });
+
+      fabricCanvas.renderAll();
+    };
+
+    adjusterRect.on("moving", applyGeometryUpdate);
+    adjusterRect.on("scaling", applyGeometryUpdate);
+    adjusterRect.on("rotating", applyGeometryUpdate);
+    adjusterRect.on("modified", () => {
+      // Normalize scale factors into width/height
+      const finalW = Math.max(20, Math.round(adjusterRect.getScaledWidth()));
+      const finalH = Math.max(20, Math.round(adjusterRect.getScaledHeight()));
+      adjusterRect.set({
+        width: finalW,
+        height: finalH,
+        scaleX: 1,
+        scaleY: 1,
+      });
+      adjusterRect.setCoords();
+      applyGeometryUpdate();
+    });
+
+    fabricCanvas.add(adjusterRect);
+    fabricCanvas.bringToFront(adjusterRect);
+    fabricCanvas.setActiveObject(adjusterRect);
+    fabricCanvas.renderAll();
+
+    adjusterRectRef.current = adjusterRect;
+    setIsAdjustingSlot(true);
+    setAdjustingGeometry({
+      width: slotW,
+      height: slotH,
+      cx: slotCx,
+      cy: slotCy,
+      rotation: slotAngle,
+    });
   };
 
-  const detectedAngle = useMemo(() => {
-    return activeSlot?.rotation != null ? normalizeAngle(activeSlot.rotation) : 0;
-  }, [activeSlot?.rotation]);
-
-  const currentAngle = useMemo(() => {
-    if (activeSlotFabricObj && typeof activeSlotFabricObj.angle === "number") {
-      return normalizeAngle(activeSlotFabricObj.angle);
+  const stopAdjustSlotMode = async () => {
+    if (!fabricCanvas || !adjusterRectRef.current) {
+      setIsAdjustingSlot(false);
+      setAdjustingGeometry(null);
+      return;
     }
-    if (activeObject && typeof activeObject.angle === "number") {
-      return normalizeAngle(activeObject.angle);
+
+    const adjusterRect = adjusterRectRef.current;
+    const targetSlotId = (adjusterRect as any).targetSlotId || selectedSlotId;
+
+    const finalW = Math.max(20, Math.round(adjusterRect.getScaledWidth()));
+    const finalH = Math.max(20, Math.round(adjusterRect.getScaledHeight()));
+    const finalCx = Math.round(adjusterRect.left);
+    const finalCy = Math.round(adjusterRect.top);
+    let finalAngle = adjusterRect.angle % 360;
+    if (finalAngle > 180) finalAngle -= 360;
+    if (finalAngle < -180) finalAngle += 360;
+    finalAngle = Math.round(finalAngle * 10) / 10;
+    const finalLeft = Math.round(finalCx - finalW / 2);
+    const finalTop = Math.round(finalCy - finalH / 2);
+
+    // Remove adjuster rect from canvas
+    fabricCanvas.remove(adjusterRect);
+    adjusterRectRef.current = null;
+
+    // Restore photo object interaction
+    const photoObj = fabricCanvas.getObjects().find((o: any) => o.elementId === targetSlotId);
+    if (photoObj) {
+      photoObj.set({
+        selectable: true,
+        evented: true,
+      });
+      photoObj.setCoords();
+      fabricCanvas.setActiveObject(photoObj);
     }
-    return detectedAngle;
-  }, [activeSlotFabricObj, activeObject, detectedAngle]);
 
-  const sliderMin = useMemo(() => {
-    return Math.min(-45, Math.floor(detectedAngle - 15));
-  }, [detectedAngle]);
+    // Update state and persist to IndexedDB
+    setTemplate((prevTemplate) => {
+      const updatedElements = prevTemplate.layoutJson.elements.map((el) => {
+        if (el.id === targetSlotId) {
+          return {
+            ...el,
+            left: finalLeft,
+            top: finalTop,
+            width: finalW,
+            height: finalH,
+            angle: finalAngle,
+            rotation: finalAngle,
+            cx: finalCx,
+            cy: finalCy,
+          };
+        }
+        return el;
+      });
 
-  const sliderMax = useMemo(() => {
-    return Math.max(45, Math.ceil(detectedAngle + 15));
-  }, [detectedAngle]);
+      const updatedTemplate: Template = {
+        ...prevTemplate,
+        layoutJson: {
+          ...prevTemplate.layoutJson,
+          elements: updatedElements,
+        },
+      };
 
-  const handleSetSlotRotation = (newAngle: number) => {
-    if (!fabricCanvas || !selectedSlotId) return;
-    const objects = fabricCanvas.getObjects();
-    const targetObj = objects.find((o: any) => o.elementId === selectedSlotId);
-    if (!targetObj) return;
+      // Persist corrected template
+      saveTemplate(updatedTemplate).catch((err) => {
+        console.warn("Error saving updated slot geometry:", err);
+      });
 
-    const clamped = Math.round(Math.max(sliderMin, Math.min(sliderMax, newAngle)) * 10) / 10;
-    targetObj.set("angle", clamped);
-    targetObj.setCoords();
+      return updatedTemplate;
+    });
+
+    setIsAdjustingSlot(false);
+    setAdjustingGeometry(null);
     fabricCanvas.renderAll();
-    setActiveObject({ ...targetObj, angle: clamped });
+  };
+
+  const handleNudgeSlot = (param: "cx" | "cy" | "width" | "height" | "rotation", delta: number) => {
+    if (!adjusterRectRef.current || !fabricCanvas) return;
+    const rect = adjusterRectRef.current;
+
+    if (param === "cx") {
+      rect.set("left", rect.left + delta);
+    } else if (param === "cy") {
+      rect.set("top", rect.top + delta);
+    } else if (param === "width") {
+      const currentW = rect.getScaledWidth();
+      const newW = Math.max(20, Math.round(currentW + delta));
+      rect.set({ width: newW, scaleX: 1 });
+    } else if (param === "height") {
+      const currentH = rect.getScaledHeight();
+      const newH = Math.max(20, Math.round(currentH + delta));
+      rect.set({ height: newH, scaleY: 1 });
+    } else if (param === "rotation") {
+      let newAngle = (rect.angle + delta) % 360;
+      if (newAngle > 180) newAngle -= 360;
+      if (newAngle < -180) newAngle += 360;
+      rect.set("angle", Math.round(newAngle * 10) / 10);
+    }
+
+    rect.setCoords();
+    rect.fire("moving");
+    fabricCanvas.renderAll();
+  };
+
+  const handleResetSlotGeometry = (slot: PhotoSlot) => {
+    const originalEl = initialTemplate.layoutJson.elements.find((el) => el.id === slot.id) as any;
+    if (!originalEl) return;
+
+    const origW = originalEl.width || 600;
+    const origH = originalEl.height || 600;
+    const origAngle = originalEl.rotation ?? originalEl.angle ?? 0;
+    const origCx = originalEl.cx != null ? originalEl.cx : (originalEl.left || 0) + origW / 2;
+    const origCy = originalEl.cy != null ? originalEl.cy : (originalEl.top || 0) + origH / 2;
+
+    if (isAdjustingSlot && adjusterRectRef.current) {
+      const rect = adjusterRectRef.current;
+      rect.set({
+        left: origCx,
+        top: origCy,
+        width: origW,
+        height: origH,
+        scaleX: 1,
+        scaleY: 1,
+        angle: origAngle,
+      });
+      rect.setCoords();
+      rect.fire("moving");
+      fabricCanvas?.renderAll();
+    } else {
+      const photoObj = fabricCanvas?.getObjects().find((o: any) => o.elementId === slot.id);
+      if (photoObj) {
+        if (photoObj.clipPath) {
+          photoObj.clipPath.set({
+            left: origCx,
+            top: origCy,
+            width: origW,
+            height: origH,
+            angle: origAngle,
+            originX: "center",
+            originY: "center",
+            scaleX: 1,
+            scaleY: 1,
+          });
+          photoObj.clipPath.setCoords();
+        }
+
+        const imgW = photoObj.width || 1;
+        const imgH = photoObj.height || 1;
+        const coverScale = Math.max(origW / imgW, origH / imgH);
+        photoObj.set({
+          left: origCx,
+          top: origCy,
+          scaleX: coverScale,
+          scaleY: coverScale,
+          angle: origAngle,
+        });
+        (photoObj as any).slotCenterX = origCx;
+        (photoObj as any).slotCenterY = origCy;
+        (photoObj as any).slotAngle = origAngle;
+        (photoObj as any).slotWidth = origW;
+        (photoObj as any).slotHeight = origH;
+        (photoObj as any).slotLeft = Math.round(origCx - origW / 2);
+        (photoObj as any).slotTop = Math.round(origCy - origH / 2);
+        (photoObj as any).targetWidth = origW;
+        (photoObj as any).targetHeight = origH;
+        (photoObj as any).aspectRatio = +(origW / origH).toFixed(3);
+        photoObj.setCoords();
+        fabricCanvas?.renderAll();
+      }
+
+      setTemplate((prev) => {
+        const updated = {
+          ...prev,
+          layoutJson: {
+            ...prev.layoutJson,
+            elements: prev.layoutJson.elements.map((el) =>
+              el.id === slot.id
+                ? {
+                    ...el,
+                    left: Math.round(origCx - origW / 2),
+                    top: Math.round(origCy - origH / 2),
+                    width: origW,
+                    height: origH,
+                    angle: origAngle,
+                    rotation: origAngle,
+                    cx: origCx,
+                    cy: origCy,
+                  }
+                : el
+            ),
+          },
+        };
+        saveTemplate(updated).catch(() => {});
+        return updated;
+      });
+    }
   };
 
   return (
@@ -777,6 +1120,19 @@ export default function EditorPage() {
                               <Crop className="w-2.5 h-2.5 text-peachPink" />
                               <span>Crop</span>
                             </button>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleSelectSlot(slot);
+                                startAdjustSlotMode(slot);
+                              }}
+                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-mauve/30 hover:bg-mauve/50 text-cream text-[10px] font-medium transition-all"
+                              title="Adjust slot geometry"
+                            >
+                              <Move className="w-2.5 h-2.5 text-peachPink" />
+                              <span>Adjust</span>
+                            </button>
                           </div>
                         </div>
                       </div>
@@ -850,7 +1206,191 @@ export default function EditorPage() {
                     <Crop className="w-3.5 h-3.5 text-peachPink" />
                     <span>Adjust Crop &amp; Proportions</span>
                   </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (isAdjustingSlot) {
+                        stopAdjustSlotMode();
+                      } else {
+                        startAdjustSlotMode(activeSlot);
+                      }
+                    }}
+                    className={`w-full py-2.5 px-3 rounded-xl border text-xs font-semibold transition-all flex items-center justify-center gap-2 cursor-pointer shadow-sm ${
+                      isAdjustingSlot
+                        ? "bg-peachPink text-plum border-cream font-bold ring-2 ring-peachPink/50"
+                        : "bg-mauve/40 hover:bg-mauve/60 border-dustyPink/40 text-cream"
+                    }`}
+                  >
+                    {isAdjustingSlot ? (
+                      <>
+                        <Check className="w-4 h-4" />
+                        <span>Done Adjusting Slot</span>
+                      </>
+                    ) : (
+                      <>
+                        <Move className="w-3.5 h-3.5 text-peachPink" />
+                        <span>Adjust Slot Boundary &amp; Tilt</span>
+                      </>
+                    )}
+                  </button>
                 </div>
+
+                {/* Interactive Slot Geometry Editing Panel */}
+                {isAdjustingSlot && adjustingGeometry && (
+                  <div className="p-3.5 rounded-2xl bg-plum-dark/95 border-2 border-peachPink/50 space-y-3 shadow-xl ring-1 ring-peachPink/30">
+                    <div className="flex items-center justify-between text-[11px] text-peachPink font-bold uppercase tracking-wider">
+                      <span className="flex items-center gap-1.5">
+                        <Move className="w-3.5 h-3.5" />
+                        Slot Geometry Active
+                      </span>
+                      <span className="font-mono text-cream font-semibold px-2 py-0.5 rounded-md bg-mauve/30 border border-peachPink/30">
+                        {adjustingGeometry.rotation > 0
+                          ? `+${adjustingGeometry.rotation.toFixed(1)}°`
+                          : `${adjustingGeometry.rotation.toFixed(1)}°`}
+                      </span>
+                    </div>
+
+                    <p className="text-[11px] text-cream/80 leading-relaxed">
+                      Drag the dashed box and circular handles on the canvas to resize, position, or rotate the slot frame window.
+                    </p>
+
+                    {/* Geometry Metrics Grid */}
+                    <div className="grid grid-cols-2 gap-2 text-[10px] font-mono">
+                      <div className="p-2 rounded-lg bg-plum/70 border border-dustyPink/20 flex flex-col">
+                        <span className="text-dustyPink">Dimensions (W &times; H)</span>
+                        <span className="text-cream font-bold text-xs mt-0.5">
+                          {adjustingGeometry.width} &times; {adjustingGeometry.height}px
+                        </span>
+                      </div>
+                      <div className="p-2 rounded-lg bg-plum/70 border border-dustyPink/20 flex flex-col">
+                        <span className="text-dustyPink">Center (X, Y)</span>
+                        <span className="text-cream font-bold text-xs mt-0.5">
+                          {adjustingGeometry.cx}, {adjustingGeometry.cy}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Fine-Tuning Nudge Controls */}
+                    <div className="space-y-2 pt-1 border-t border-dustyPink/20">
+                      <div className="text-[10px] uppercase font-semibold text-dustyPink tracking-wider">
+                        Fine-Tune Nudges
+                      </div>
+
+                      {/* Rotation Nudge */}
+                      <div className="flex items-center justify-between gap-2 text-xs">
+                        <span className="text-[11px] text-cream/90">Tilt Angle</span>
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => handleNudgeSlot("rotation", -1)}
+                            className="px-2 py-0.5 rounded bg-mauve/30 hover:bg-mauve/50 border border-dustyPink/30 text-cream font-mono text-[11px] active:scale-95"
+                            title="Rotate -1°"
+                          >
+                            -1°
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleNudgeSlot("rotation", 1)}
+                            className="px-2 py-0.5 rounded bg-mauve/30 hover:bg-mauve/50 border border-dustyPink/30 text-cream font-mono text-[11px] active:scale-95"
+                            title="Rotate +1°"
+                          >
+                            +1°
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Position Nudges */}
+                      <div className="flex items-center justify-between gap-2 text-xs">
+                        <span className="text-[11px] text-cream/90">Position (X / Y)</span>
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => handleNudgeSlot("cx", -2)}
+                            className="px-1.5 py-0.5 rounded bg-mauve/30 hover:bg-mauve/50 border border-dustyPink/30 text-cream font-mono text-[10px] active:scale-95"
+                            title="Move Left 2px"
+                          >
+                            &larr;
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleNudgeSlot("cx", 2)}
+                            className="px-1.5 py-0.5 rounded bg-mauve/30 hover:bg-mauve/50 border border-dustyPink/30 text-cream font-mono text-[10px] active:scale-95"
+                            title="Move Right 2px"
+                          >
+                            &rarr;
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleNudgeSlot("cy", -2)}
+                            className="px-1.5 py-0.5 rounded bg-mauve/30 hover:bg-mauve/50 border border-dustyPink/30 text-cream font-mono text-[10px] active:scale-95"
+                            title="Move Up 2px"
+                          >
+                            &uarr;
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleNudgeSlot("cy", 2)}
+                            className="px-1.5 py-0.5 rounded bg-mauve/30 hover:bg-mauve/50 border border-dustyPink/30 text-cream font-mono text-[10px] active:scale-95"
+                            title="Move Down 2px"
+                          >
+                            &darr;
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Size Nudges */}
+                      <div className="flex items-center justify-between gap-2 text-xs">
+                        <span className="text-[11px] text-cream/90">Size (W / H)</span>
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              handleNudgeSlot("width", -4);
+                              handleNudgeSlot("height", -4);
+                            }}
+                            className="px-2 py-0.5 rounded bg-mauve/30 hover:bg-mauve/50 border border-dustyPink/30 text-cream font-mono text-[11px] active:scale-95"
+                            title="Shrink by 4px"
+                          >
+                            -
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              handleNudgeSlot("width", 4);
+                              handleNudgeSlot("height", 4);
+                            }}
+                            className="px-2 py-0.5 rounded bg-mauve/30 hover:bg-mauve/50 border border-dustyPink/30 text-cream font-mono text-[11px] active:scale-95"
+                            title="Expand by 4px"
+                          >
+                            +
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 pt-2 border-t border-dustyPink/20">
+                      <button
+                        type="button"
+                        onClick={stopAdjustSlotMode}
+                        className="flex-1 py-2 px-3 rounded-lg bg-cream hover:bg-peachPink text-plum font-bold text-xs flex items-center justify-center gap-1.5 transition-all shadow-md cursor-pointer active:scale-98"
+                      >
+                        <Check className="w-3.5 h-3.5" />
+                        <span>Confirm &amp; Save Slot</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handleResetSlotGeometry(activeSlot)}
+                        className="py-2 px-2.5 rounded-lg bg-plum/60 hover:bg-plum/90 border border-dustyPink/30 text-cream/80 hover:text-cream text-xs flex items-center justify-center gap-1 transition-all active:scale-98"
+                        title="Reset slot geometry to initial template detection"
+                      >
+                        <RotateCcw className="w-3.5 h-3.5" />
+                        <span>Reset</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
 
                 {/* Picture Adjustments */}
                 <div className="pt-3 border-t border-dustyPink/20 space-y-3">
@@ -871,62 +1411,6 @@ export default function EditorPage() {
                       onChange={(e) => updateActiveSlotProp("opacity", parseFloat(e.target.value))}
                       className="w-full accent-mauve cursor-pointer"
                     />
-                  </div>
-
-                  {/* Photo Rotation / Tilt Slider & Nudges */}
-                  <div>
-                    <div className="flex items-center justify-between text-[11px] text-dustyPink font-semibold uppercase tracking-wider mb-1.5">
-                      <div className="flex items-center gap-1.5">
-                        <RotateCw className="w-3.5 h-3.5 text-peachPink" />
-                        <span>Rotation / Tilt</span>
-                      </div>
-                      <span className="font-mono text-cream font-bold">
-                        {currentAngle > 0 ? `+${currentAngle.toFixed(1)}°` : `${currentAngle.toFixed(1)}°`}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => handleSetSlotRotation(currentAngle - 1)}
-                        className="px-2 py-1 rounded bg-mauve/25 hover:bg-mauve/45 border border-dustyPink/30 text-cream text-[11px] font-mono font-medium transition-colors cursor-pointer select-none active:scale-95"
-                        title="Rotate 1° counter-clockwise"
-                      >
-                        -1°
-                      </button>
-                      <input
-                        type="range"
-                        min={sliderMin}
-                        max={sliderMax}
-                        step="0.5"
-                        value={currentAngle}
-                        onChange={(e) => handleSetSlotRotation(parseFloat(e.target.value))}
-                        className="flex-1 accent-mauve cursor-pointer"
-                        title="Fine-tune photo tilt"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => handleSetSlotRotation(currentAngle + 1)}
-                        className="px-2 py-1 rounded bg-mauve/25 hover:bg-mauve/45 border border-dustyPink/30 text-cream text-[11px] font-mono font-medium transition-colors cursor-pointer select-none active:scale-95"
-                        title="Rotate 1° clockwise"
-                      >
-                        +1°
-                      </button>
-                    </div>
-
-                    <div className="flex items-center justify-between mt-1.5">
-                      <span className="text-[10px] text-dustyPink/70">
-                        Detected: {detectedAngle > 0 ? `+${detectedAngle.toFixed(1)}°` : `${detectedAngle.toFixed(1)}°`}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => handleSetSlotRotation(detectedAngle)}
-                        disabled={Math.abs(currentAngle - detectedAngle) < 0.1}
-                        className="text-[10px] text-dustyPink hover:text-peachPink disabled:opacity-30 disabled:hover:text-dustyPink transition-colors underline cursor-pointer disabled:cursor-not-allowed"
-                        title="Reset rotation to detected slot tilt"
-                      >
-                        Reset to detected angle
-                      </button>
-                    </div>
                   </div>
 
                   {/* Horizontal Flip & Reset */}
@@ -1043,6 +1527,18 @@ export default function EditorPage() {
                           title="Adjust crop"
                         >
                           <Crop className="w-3 h-3 text-peachPink" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleSelectSlot(slot);
+                            startAdjustSlotMode(slot);
+                          }}
+                          className="p-1 rounded-lg bg-mauve/20 hover:bg-mauve/40 text-cream text-[10px] transition-all"
+                          title="Adjust slot geometry and tilt"
+                        >
+                          <Move className="w-3 h-3 text-peachPink" />
                         </button>
                       </div>
                     </div>
