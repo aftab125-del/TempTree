@@ -28,10 +28,11 @@ export interface FrameDetectionOptions {
   targetWidth?: number;
   targetHeight?: number;
   contrastThreshold?: number;
+  erosionMargin?: number;
 }
 
 export const DEFAULT_OPTIONS: Required<FrameDetectionOptions> = {
-  maxColorVariance: 22,
+  maxColorVariance: 18,
   minWidth: 120,
   minHeight: 120,
   minArea: 20000,
@@ -43,6 +44,7 @@ export const DEFAULT_OPTIONS: Required<FrameDetectionOptions> = {
   targetWidth: 1080,
   targetHeight: 1920,
   contrastThreshold: 28,
+  erosionMargin: 2,
 };
 
 export interface DetectedSlot {
@@ -190,6 +192,138 @@ export function minAreaRect(points: { x: number; y: number }[]): RotatedRect | n
   }
 
   return bestRect;
+}
+
+/**
+ * Tightens a detected flat-color region by eroding its boundary by `erosionPx` (1-3px).
+ * Removes blended or anti-aliased edge pixels that transition into neighboring decorative artwork.
+ */
+export function erodeRegionPoints(
+  data: Uint8Array,
+  canvasWidth: number,
+  canvasHeight: number,
+  baseR: number,
+  baseG: number,
+  baseB: number,
+  minX: number,
+  maxX: number,
+  minY: number,
+  maxY: number,
+  seedX: number,
+  seedY: number,
+  variance: number,
+  erosionPx: number = 2
+): RotatedRect | null {
+  if (erosionPx <= 0) return null;
+  const margin = 16;
+  const x1 = Math.max(0, minX - margin);
+  const x2 = Math.min(canvasWidth - 1, maxX + margin);
+  const y1 = Math.max(0, minY - margin);
+  const y2 = Math.min(canvasHeight - 1, maxY + margin);
+
+  const localW = x2 - x1 + 1;
+  const localH = y2 - y1 + 1;
+
+  // Use fine 2px resolution for sub-pixel accuracy and high performance
+  const fineStep = 2;
+  const fGridW = Math.floor(localW / fineStep);
+  const fGridH = Math.floor(localH / fineStep);
+
+  const fMask = new Uint8Array(fGridW * fGridH);
+  for (let gy = 0; gy < fGridH; gy++) {
+    const py = y1 + gy * fineStep;
+    const rowOffset = py * canvasWidth * 4;
+    for (let gx = 0; gx < fGridW; gx++) {
+      const px = x1 + gx * fineStep;
+      const idx = rowOffset + px * 4;
+      const r = data[idx];
+      const g = data[idx + 1];
+      const b = data[idx + 2];
+      const a = data[idx + 3];
+      if (a >= 128 && isColorClose(baseR, baseG, baseB, r, g, b, variance)) {
+        fMask[gy * fGridW + gx] = 1;
+      }
+    }
+  }
+
+  const seedGx = Math.max(0, Math.min(fGridW - 1, Math.floor((seedX - x1) / fineStep)));
+  const seedGy = Math.max(0, Math.min(fGridH - 1, Math.floor((seedY - y1) / fineStep)));
+
+  let startGx = seedGx;
+  let startGy = seedGy;
+  if (fMask[startGy * fGridW + startGx] === 0) {
+    let found = false;
+    for (let r = 1; r < 20 && !found; r++) {
+      for (let dy = -r; dy <= r && !found; dy++) {
+        for (let dx = -r; dx <= r && !found; dx++) {
+          const checkGx = seedGx + dx;
+          const checkGy = seedGy + dy;
+          if (checkGx >= 0 && checkGx < fGridW && checkGy >= 0 && checkGy < fGridH) {
+            if (fMask[checkGy * fGridW + checkGx] === 1) {
+              startGx = checkGx;
+              startGy = checkGy;
+              found = true;
+            }
+          }
+        }
+      }
+    }
+  }
+
+  const fVisited = new Uint8Array(fGridW * fGridH);
+  const queue = [startGx, startGy];
+  fVisited[startGy * fGridW + startGx] = 1;
+  const componentCells: { gx: number; gy: number }[] = [{ gx: startGx, gy: startGy }];
+
+  let head = 0;
+  while (head < queue.length) {
+    const cgx = queue[head++];
+    const cgy = queue[head++];
+
+    const neighbors = [
+      [cgx + 1, cgy],
+      [cgx - 1, cgy],
+      [cgx, cgy + 1],
+      [cgx, cgy - 1],
+    ];
+
+    for (const [ngx, ngy] of neighbors) {
+      if (ngx < 0 || ngx >= fGridW || ngy < 0 || ngy >= fGridH) continue;
+      const nIdx = ngy * fGridW + ngx;
+      if (fMask[nIdx] === 1 && fVisited[nIdx] === 0) {
+        fVisited[nIdx] = 1;
+        queue.push(ngx, ngy);
+        componentCells.push({ gx: ngx, gy: ngy });
+      }
+    }
+  }
+
+  const erosionSteps = Math.max(1, Math.round(erosionPx / fineStep));
+  const erodedCells: { x: number; y: number }[] = [];
+
+  for (const cell of componentCells) {
+    let inside = true;
+    for (let dy = -erosionSteps; dy <= erosionSteps && inside; dy++) {
+      for (let dx = -erosionSteps; dx <= erosionSteps; dx++) {
+        const nx = cell.gx + dx;
+        const ny = cell.gy + dy;
+        if (nx < 0 || nx >= fGridW || ny < 0 || ny >= fGridH || fVisited[ny * fGridW + nx] === 0) {
+          inside = false;
+          break;
+        }
+      }
+    }
+
+    if (inside) {
+      erodedCells.push({
+        x: x1 + cell.gx * fineStep,
+        y: y1 + cell.gy * fineStep,
+      });
+    }
+  }
+
+  if (erodedCells.length < 10) return null;
+  return minAreaRect(erodedCells);
 }
 
 export interface DetectionResult {
@@ -362,8 +496,31 @@ export async function detectPlaceholders(
       const actualPixels = pixelCount * step * step;
       if (actualPixels < options.minArea) continue;
 
-      // Estimate rotation & minimum-area bounding box
-      const rotatedBox = minAreaRect(points);
+      // Estimate rotation & minimum-area bounding box with edge erosion tightening
+      let rotatedBox: RotatedRect | null = null;
+      if (options.erosionMargin && options.erosionMargin > 0) {
+        const seedX = Math.round((minX + maxX) / 2);
+        const seedY = Math.round((minY + maxY) / 2);
+        rotatedBox = erodeRegionPoints(
+          data,
+          width,
+          height,
+          baseR,
+          baseG,
+          baseB,
+          minX,
+          maxX,
+          minY,
+          maxY,
+          seedX,
+          seedY,
+          options.maxColorVariance,
+          options.erosionMargin
+        );
+      }
+      if (!rotatedBox) {
+        rotatedBox = minAreaRect(points);
+      }
       const boxWidth = rotatedBox ? rotatedBox.width : (maxX - minX + step);
       const boxHeight = rotatedBox ? rotatedBox.height : (maxY - minY + step);
       const boxArea = rotatedBox ? rotatedBox.area : (boxWidth * boxHeight);
@@ -656,7 +813,21 @@ export async function generateCutoutBuffer(
 
           if (Math.abs(u) <= halfW && Math.abs(v) <= halfH) {
             const idx = (y * width + x) * 4;
-            data[idx + 3] = 0; // Alpha = 0 (transparent)
+            const r = data[idx];
+            const g = data[idx + 1];
+            const b = data[idx + 2];
+
+            // Color-aware punch: ensure decorative artwork (lace, flowers, stickers) is preserved
+            let shouldPunch = true;
+            if (p.rgb) {
+              const isMatch = isColorClose(p.rgb.r, p.rgb.g, p.rgb.b, r, g, b, options.maxColorVariance + 4);
+              const isCenterIcon = p.hasPlusIcon && Math.abs(dx) <= 20 && Math.abs(dy) <= 20;
+              shouldPunch = isMatch || isCenterIcon;
+            }
+
+            if (shouldPunch) {
+              data[idx + 3] = 0; // Alpha = 0 (transparent)
+            }
           }
         }
       }
@@ -669,7 +840,20 @@ export async function generateCutoutBuffer(
       for (let y = startY; y < endY; y++) {
         for (let x = startX; x < endX; x++) {
           const idx = (y * width + x) * 4;
-          data[idx + 3] = 0; // Alpha = 0 (transparent)
+          const r = data[idx];
+          const g = data[idx + 1];
+          const b = data[idx + 2];
+
+          let shouldPunch = true;
+          if (p.rgb) {
+            const isMatch = isColorClose(p.rgb.r, p.rgb.g, p.rgb.b, r, g, b, options.maxColorVariance + 4);
+            const isCenterIcon = p.hasPlusIcon && Math.abs(x - cx) <= 20 && Math.abs(y - cy) <= 20;
+            shouldPunch = isMatch || isCenterIcon;
+          }
+
+          if (shouldPunch) {
+            data[idx + 3] = 0; // Alpha = 0 (transparent)
+          }
         }
       }
     }
