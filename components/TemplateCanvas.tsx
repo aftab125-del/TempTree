@@ -106,8 +106,12 @@ export default function TemplateCanvas({
           });
         }
 
-        // Render all elements onto canvas
-        const elementPromises = layout.elements.map((el: TemplateElement) => {
+        // Separate base elements from the decorative frame cutout overlay
+        const baseElements = layout.elements.filter((el) => el.id !== "frame-cutout-overlay");
+        const overlayElement = layout.elements.find((el) => el.id === "frame-cutout-overlay");
+
+        // 1. Render all base elements (shapes, text, and photo slots) first
+        const basePromises = baseElements.map((el: TemplateElement) => {
           return new Promise<any>((resolve) => {
             if (el.type === "text") {
               const textObj = new fabric.Textbox(el.text, {
@@ -133,123 +137,80 @@ export default function TemplateCanvas({
 
               (textObj as any).elementId = el.id;
               (textObj as any).elementType = "text";
-              if (textObj && typeof textObj.render === "function") {
-                canvasInstance.add(textObj);
-                resolve(textObj);
-              } else {
-                resolve(null);
-              }
+              resolve(textObj);
             } else if (el.type === "image") {
-              if (el.id === "frame-cutout-overlay") {
-                // Set decorative cutout frame directly as canvas overlayImage
-                // Fabric's _renderOverlay renders on top of all photo slots and active selections
-                fabric.Image.fromURL(
-                  el.src,
-                  (overlayImg: any, isError: boolean) => {
-                    if (!overlayImg || isError || !canvasInstance) {
-                      resolve(null);
-                      return;
-                    }
-                    const scaleX = nativeWidth / (overlayImg.width || nativeWidth);
-                    const scaleY = nativeHeight / (overlayImg.height || nativeHeight);
-                    overlayImg.set({
-                      left: 0,
-                      top: 0,
-                      originX: "left",
-                      originY: "top",
-                      scaleX: scaleX,
-                      scaleY: scaleY,
-                      selectable: false,
-                      evented: false,
-                      hasControls: false,
-                      hasBorders: false,
-                      hoverCursor: "default",
-                    });
-                    (overlayImg as any).elementId = el.id;
-                    (overlayImg as any).elementType = "image";
-                    (overlayImg as any).isOverlay = true;
+              fabric.Image.fromURL(
+                el.src,
+                (img: any, isError: boolean) => {
+                  if (!img || isError || !canvasInstance) {
+                    resolve(null);
+                    return;
+                  }
 
-                    canvasInstance.setOverlayImage(overlayImg, () => {
-                      if (canvasInstance && typeof canvasInstance.renderAll === "function") {
-                        canvasInstance.renderAll();
-                      }
-                      resolve(overlayImg);
-                    });
-                  },
-                  { crossOrigin: "anonymous" }
-                );
-              } else {
-                // Load image placeholder or user photo with bleed margin behind cutout
-                fabric.Image.fromURL(
-                  el.src,
-                  (img: any, isError: boolean) => {
-                    if (!img || isError || typeof img.render !== "function" || !canvasInstance) {
-                      resolve(null);
-                      return;
-                    }
+                  const slotW = el.width || 720;
+                  const slotH = el.height || 880;
+                  const imgW = img.width || 1;
+                  const imgH = img.height || 1;
 
-                    const bleed = 4;
-                    const baseW = el.width || 720;
-                    const baseH = el.height || 880;
-                    const targetWidth = baseW + bleed * 2;
-                    const targetHeight = baseH + bleed * 2;
-                    const targetLeft = (el.left || 0) - bleed;
-                    const targetTop = (el.top || 0) - bleed;
+                  // Automatically scale to COVER the full slot dimensions
+                  const coverScale = Math.max(slotW / imgW, slotH / imgH);
+                  const scaledW = imgW * coverScale;
+                  const scaledH = imgH * coverScale;
 
-                    // Scale image to fit the container bounds with cover fit
-                    const scaleX = targetWidth / (img.width || 1);
-                    const scaleY = targetHeight / (img.height || 1);
-                    const coverScale = Math.max(scaleX, scaleY);
+                  // Initial centered placement within slot
+                  const initialLeft = (el.left || 0) + (slotW - scaledW) / 2;
+                  const initialTop = (el.top || 0) + (slotH - scaledH) / 2;
 
-                    const renderedW = (img.width || 1) * coverScale;
-                    const renderedH = (img.height || 1) * coverScale;
-                    const centerOffsetX = (targetWidth - renderedW) / 2;
-                    const centerOffsetY = (targetHeight - renderedH) / 2;
+                  // Clip path tied to slot dimensions so movement never bleeds outside
+                  const clipRect = new fabric.Rect({
+                    left: el.left || 0,
+                    top: el.top || 0,
+                    width: slotW,
+                    height: slotH,
+                    originX: "left",
+                    originY: "top",
+                    absolutePositioned: true,
+                  });
 
-                    img.set({
-                      left: targetLeft + centerOffsetX,
-                      top: targetTop + centerOffsetY,
-                      scaleX: coverScale,
-                      scaleY: coverScale,
-                      opacity: el.opacity ?? 1,
-                      angle: el.angle || 0,
-                      selectable: interactive,
-                      evented: interactive,
-                      hasControls: false, // Prevents distorting circular drag handles
-                      hasBorders: true,   // Subtle selection outline
-                      borderColor: "#E2B4BD",
-                      borderScaleFactor: 2,
-                      lockMovementX: true, // Photo stays locked in slot
-                      lockMovementY: true,
-                      lockRotation: true,
-                      lockScalingX: true,
-                      lockScalingY: true,
-                      hoverCursor: interactive ? "pointer" : "default",
-                    });
+                  img.set({
+                    left: initialLeft,
+                    top: initialTop,
+                    scaleX: coverScale,
+                    scaleY: coverScale,
+                    clipPath: clipRect,
+                    opacity: el.opacity ?? 1,
+                    angle: el.angle || 0,
+                    selectable: interactive,
+                    evented: interactive,
+                    hasControls: false,
+                    hasBorders: true,
+                    borderColor: "#E2B4BD",
+                    borderScaleFactor: 2,
+                    lockMovementX: !interactive, // allow dragging within slot in editor
+                    lockMovementY: !interactive,
+                    lockRotation: true,
+                    lockScalingX: true,
+                    lockScalingY: true,
+                    hoverCursor: interactive ? "grab" : "default",
+                    moveCursor: "grabbing",
+                  });
 
-                    if (el.stroke) {
-                      img.set({
-                        stroke: el.stroke,
-                        strokeWidth: el.strokeWidth || 2,
-                      });
-                    }
+                  (img as any).elementId = el.id;
+                  (img as any).elementType = "image";
+                  (img as any).placeholderLabel = el.placeholderLabel;
+                  (img as any).isPlaceholder = el.isPlaceholder;
+                  (img as any).targetWidth = slotW;
+                  (img as any).targetHeight = slotH;
+                  (img as any).aspectRatio = slotW / slotH;
+                  (img as any).slotLeft = el.left || 0;
+                  (img as any).slotTop = el.top || 0;
+                  (img as any).slotWidth = slotW;
+                  (img as any).slotHeight = slotH;
 
-                    (img as any).elementId = el.id;
-                    (img as any).elementType = "image";
-                    (img as any).placeholderLabel = el.placeholderLabel;
-                    (img as any).isPlaceholder = el.isPlaceholder;
-                    (img as any).targetWidth = baseW;
-                    (img as any).targetHeight = baseH;
-                    (img as any).aspectRatio = baseW / baseH;
-                    (img as any).originalLeft = el.left;
-                    (img as any).originalTop = el.top;
-
-                    canvasInstance.add(img);
-                    resolve(img);
-                  },
-                  { crossOrigin: "anonymous" }
-                );
-              }
+                  resolve(img);
+                },
+                { crossOrigin: el.src.startsWith("http") ? "anonymous" : undefined }
+              );
             } else if (el.type === "rect") {
               const rectObj = new fabric.Rect({
                 left: el.left,
@@ -274,12 +235,7 @@ export default function TemplateCanvas({
 
               (rectObj as any).elementId = el.id;
               (rectObj as any).elementType = "rect";
-              if (rectObj && typeof rectObj.render === "function") {
-                canvasInstance.add(rectObj);
-                resolve(rectObj);
-              } else {
-                resolve(null);
-              }
+              resolve(rectObj);
             } else if (el.type === "circle") {
               const circleObj = new fabric.Circle({
                 left: el.left,
@@ -303,27 +259,97 @@ export default function TemplateCanvas({
 
               (circleObj as any).elementId = el.id;
               (circleObj as any).elementType = "circle";
-              if (circleObj && typeof circleObj.render === "function") {
-                canvasInstance.add(circleObj);
-                resolve(circleObj);
-              } else {
-                resolve(null);
-              }
+              resolve(circleObj);
             } else {
               resolve(null);
             }
           });
         });
 
-        await Promise.all(elementPromises);
+        // Await all base objects and add them to canvas in order
+        const baseObjects = await Promise.all(basePromises);
+        baseObjects.forEach((obj) => {
+          if (obj && canvasInstance) {
+            canvasInstance.add(obj);
+          }
+        });
 
-        // Fallback for non-overlay templates: ensure any overlay element stays above photos
-        const canvasObjects = canvasInstance.getObjects();
-        const fallbackOverlay = canvasObjects.find(
-          (obj: any) => obj.elementId === "frame-cutout-overlay"
-        );
-        if (fallbackOverlay && typeof canvasInstance.bringToFront === "function") {
-          canvasInstance.bringToFront(fallbackOverlay);
+        // 2. Add frame overlay AFTER (on top of) the photo objects
+        if (overlayElement && overlayElement.type === "image") {
+          await new Promise<void>((resolveOverlay) => {
+            fabric.Image.fromURL(
+              overlayElement.src,
+              (overlayImg: any, isError: boolean) => {
+                if (!overlayImg || isError || !canvasInstance) {
+                  resolveOverlay();
+                  return;
+                }
+
+                const scaleX = nativeWidth / (overlayImg.width || nativeWidth);
+                const scaleY = nativeHeight / (overlayImg.height || nativeHeight);
+
+                overlayImg.set({
+                  left: overlayElement.left || 0,
+                  top: overlayElement.top || 0,
+                  originX: "left",
+                  originY: "top",
+                  scaleX: scaleX,
+                  scaleY: scaleY,
+                  selectable: false, // does not block interaction with photo underneath
+                  evented: false,    // transparent regions click through to photos
+                  hasControls: false,
+                  hasBorders: false,
+                  hoverCursor: "default",
+                });
+
+                (overlayImg as any).elementId = "frame-cutout-overlay";
+                (overlayImg as any).isOverlay = true;
+
+                // Add to canvas AFTER photos and bring to front
+                canvasInstance.add(overlayImg);
+                canvasInstance.bringToFront(overlayImg);
+                resolveOverlay();
+              },
+              { crossOrigin: overlayElement.src.startsWith("http") ? "anonymous" : undefined }
+            );
+          });
+        }
+
+        // 3. Ensure drag repositioning is constrained to slot bounds so photo never leaves empty gaps
+        if (interactive) {
+          canvasInstance.on("object:moving", (e: any) => {
+            const target = e.target;
+            if (!target || !target.elementId || target.elementId === "frame-cutout-overlay") return;
+
+            const slotLeft = target.slotLeft ?? target.originalLeft;
+            const slotTop = target.slotTop ?? target.originalTop;
+            const slotW = target.slotWidth ?? target.targetWidth;
+            const slotH = target.slotHeight ?? target.targetHeight;
+
+            if (slotLeft == null || slotW == null || slotH == null) return;
+
+            const scaledW = target.getScaledWidth();
+            const scaledH = target.getScaledHeight();
+
+            if (scaledW >= slotW) {
+              const minLeft = slotLeft + slotW - scaledW;
+              const maxLeft = slotLeft;
+              if (target.left > maxLeft) target.left = maxLeft;
+              if (target.left < minLeft) target.left = minLeft;
+            } else {
+              target.left = slotLeft + (slotW - scaledW) / 2;
+            }
+
+            if (scaledH >= slotH) {
+              const minTop = slotTop + slotH - scaledH;
+              const maxTop = slotTop;
+              if (target.top > maxTop) target.top = maxTop;
+              if (target.top < minTop) target.top = minTop;
+            } else {
+              target.top = slotTop + (slotH - scaledH) / 2;
+            }
+            target.setCoords();
+          });
         }
 
         if (canvasInstance && typeof canvasInstance.renderAll === "function") {

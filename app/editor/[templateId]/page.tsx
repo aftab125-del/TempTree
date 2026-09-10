@@ -275,6 +275,161 @@ export default function EditorPage() {
     }
   };
 
+  const applyCoverPhotoToSlot = async (slot: PhotoSlot, imageSrc: string) => {
+    if (!fabricCanvas) return;
+    const fabric = fabricModuleRef.current || (await loadFabric());
+    if (!fabric) return;
+
+    // Cache thumbnail locally so the slot list updates immediately
+    setSlotThumbnails((prev) => ({ ...prev, [slot.id]: imageSrc }));
+
+    const objects = fabricCanvas.getObjects();
+    const existingObj = objects.find((o: any) => o.elementId === slot.id);
+
+    const htmlImg = new Image();
+    if (imageSrc.startsWith("http")) {
+      htmlImg.crossOrigin = "anonymous";
+    }
+
+    const applyToFabric = () => {
+      const imgW = htmlImg.naturalWidth || htmlImg.width || 1;
+      const imgH = htmlImg.naturalHeight || htmlImg.height || 1;
+
+      const slotW = slot.width;
+      const slotH = slot.height;
+      const slotLeft = slot.left;
+      const slotTop = slot.top;
+
+      // Automatically scale to COVER the full slot dimensions (no empty gaps)
+      const coverScale = Math.max(slotW / imgW, slotH / imgH);
+      const scaledW = imgW * coverScale;
+      const scaledH = imgH * coverScale;
+
+      // Initial centered placement within slot
+      const initialLeft = slotLeft + (slotW - scaledW) / 2;
+      const initialTop = slotTop + (slotH - scaledH) / 2;
+
+      // Clip path anchored to slot dimensions in canvas space so dragging never bleeds outside
+      const clipRect = new fabric.Rect({
+        left: slotLeft,
+        top: slotTop,
+        width: slotW,
+        height: slotH,
+        originX: "left",
+        originY: "top",
+        absolutePositioned: true,
+      });
+
+      let activeTarget: any = existingObj;
+
+      if (existingObj && typeof existingObj.setElement === "function") {
+        // In-place swap preserving canvas z-index stacking
+        existingObj.setElement(htmlImg);
+        existingObj.set({
+          left: initialLeft,
+          top: initialTop,
+          scaleX: coverScale,
+          scaleY: coverScale,
+          width: imgW,
+          height: imgH,
+          clipPath: clipRect,
+          opacity: 1,
+          angle: 0,
+          selectable: true,
+          evented: true,
+          hasControls: false,
+          hasBorders: true,
+          borderColor: "#E2B4BD",
+          borderScaleFactor: 2,
+          lockMovementX: false, // Draggable / pannable within slot bounds
+          lockMovementY: false,
+          lockRotation: true,
+          lockScalingX: true,
+          lockScalingY: true,
+          hoverCursor: "grab",
+          moveCursor: "grabbing",
+        });
+
+        (existingObj as any).slotLeft = slotLeft;
+        (existingObj as any).slotTop = slotTop;
+        (existingObj as any).slotWidth = slotW;
+        (existingObj as any).slotHeight = slotH;
+        (existingObj as any).targetWidth = slotW;
+        (existingObj as any).targetHeight = slotH;
+        (existingObj as any).aspectRatio = slotW / slotH;
+
+        existingObj.setCoords();
+      } else {
+        const newImg = new fabric.Image(htmlImg, {
+          left: initialLeft,
+          top: initialTop,
+          scaleX: coverScale,
+          scaleY: coverScale,
+          clipPath: clipRect,
+          selectable: true,
+          evented: true,
+          hasControls: false,
+          hasBorders: true,
+          borderColor: "#E2B4BD",
+          borderScaleFactor: 2,
+          lockMovementX: false,
+          lockMovementY: false,
+          lockRotation: true,
+          lockScalingX: true,
+          lockScalingY: true,
+          hoverCursor: "grab",
+          moveCursor: "grabbing",
+        });
+
+        (newImg as any).elementId = slot.id;
+        (newImg as any).elementType = "image";
+        (newImg as any).slotLeft = slotLeft;
+        (newImg as any).slotTop = slotTop;
+        (newImg as any).slotWidth = slotW;
+        (newImg as any).slotHeight = slotH;
+        (newImg as any).targetWidth = slotW;
+        (newImg as any).targetHeight = slotH;
+        (newImg as any).aspectRatio = slotW / slotH;
+
+        if (existingObj) {
+          const index = objects.indexOf(existingObj);
+          fabricCanvas.remove(existingObj);
+          if (typeof fabricCanvas.insertAt === "function") {
+            fabricCanvas.insertAt(newImg, index);
+          } else {
+            fabricCanvas.add(newImg);
+          }
+        } else {
+          fabricCanvas.add(newImg);
+        }
+        activeTarget = newImg;
+      }
+
+      // Ensure cutout frame overlay is ALWAYS on top of photos
+      const overlayObj = fabricCanvas.getObjects().find(
+        (obj: any) => obj.elementId === "frame-cutout-overlay"
+      );
+      if (overlayObj && typeof fabricCanvas.bringToFront === "function") {
+        fabricCanvas.bringToFront(overlayObj);
+      }
+
+      fabricCanvas.renderAll();
+      if (activeTarget && typeof fabricCanvas.setActiveObject === "function") {
+        fabricCanvas.setActiveObject(activeTarget);
+        fabricCanvas.renderAll();
+      }
+      setActiveObject(activeTarget || null);
+      setSelectedSlotId(slot.id);
+      pendingSlotRef.current = null;
+    };
+
+    htmlImg.onload = applyToFabric;
+    htmlImg.src = imageSrc;
+    if (htmlImg.complete && htmlImg.naturalWidth > 0) {
+      applyToFabric();
+    }
+  };
+
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -295,127 +450,14 @@ export default function EditorPage() {
       rawPhotosRef.current[targetSlot.id] = dataUrl;
       setRawPhotos((prev) => ({ ...prev, [targetSlot.id]: dataUrl }));
 
-      // Open the cropper modal with full original image
-      setCropperModal({
-        isOpen: true,
-        imageSrc: dataUrl,
-        targetSlot: targetSlot,
-      });
+      // Directly place the photo into the slot with cover + draggable behavior
+      await applyCoverPhotoToSlot(targetSlot, dataUrl);
     };
     reader.readAsDataURL(file);
   };
 
   const applyCroppedImageToSlot = async (slot: PhotoSlot, croppedDataUrl: string) => {
-    if (!fabricCanvas) return;
-    const fabric = fabricModuleRef.current || (await loadFabric());
-    if (!fabric) return;
-
-    // Cache thumbnail locally so the slot list updates immediately
-    setSlotThumbnails((prev) => ({ ...prev, [slot.id]: croppedDataUrl }));
-
-    const objects = fabricCanvas.getObjects();
-    const existingObj = objects.find((o: any) => o.elementId === slot.id);
-
-    // Use native Image element to guarantee 100% reliable first-time load without data-URL crossOrigin issues
-    const htmlImg = new Image();
-    const applyToFabric = () => {
-      let activeTarget: any = existingObj;
-
-      // Provide slight bleed margin so photo sits snug behind cutout hole with zero gaps
-      const bleed = 4;
-      const targetW = slot.width + bleed * 2;
-      const targetH = slot.height + bleed * 2;
-      const targetLeft = slot.left - bleed;
-      const targetTop = slot.top - bleed;
-
-      const scaleX = targetW / (htmlImg.width || 1);
-      const scaleY = targetH / (htmlImg.height || 1);
-
-      if (existingObj && typeof existingObj.setElement === "function") {
-        // Fast, reliable in-place element swap without re-stacking
-        existingObj.setElement(htmlImg);
-        existingObj.set({
-          left: targetLeft,
-          top: targetTop,
-          scaleX: scaleX,
-          scaleY: scaleY,
-          width: htmlImg.width,
-          height: htmlImg.height,
-          selectable: true,
-          evented: true,
-          hasControls: false,
-          hasBorders: true,
-          borderColor: "#E2B4BD",
-          borderScaleFactor: 2,
-          lockMovementX: true,
-          lockMovementY: true,
-          lockRotation: true,
-          lockScalingX: true,
-          lockScalingY: true,
-        });
-        existingObj.setCoords();
-      } else {
-        const newImg = new fabric.Image(htmlImg, {
-          left: targetLeft,
-          top: targetTop,
-          scaleX: scaleX,
-          scaleY: scaleY,
-          selectable: true,
-          evented: true,
-          hasControls: false,
-          hasBorders: true,
-          borderColor: "#E2B4BD",
-          borderScaleFactor: 2,
-          lockMovementX: true,
-          lockMovementY: true,
-          lockRotation: true,
-          lockScalingX: true,
-          lockScalingY: true,
-        });
-
-        (newImg as any).elementId = slot.id;
-        (newImg as any).elementType = "image";
-        (newImg as any).targetWidth = slot.width;
-        (newImg as any).targetHeight = slot.height;
-        (newImg as any).aspectRatio = slot.aspectRatio;
-
-        if (existingObj) {
-          const index = objects.indexOf(existingObj);
-          fabricCanvas.remove(existingObj);
-          if (typeof fabricCanvas.insertAt === "function") {
-            fabricCanvas.insertAt(newImg, index);
-          } else {
-            fabricCanvas.add(newImg);
-          }
-        } else {
-          fabricCanvas.add(newImg);
-        }
-        activeTarget = newImg;
-      }
-
-      // Ensure any fallback non-overlay element stays above photos
-      const fallbackOverlay = fabricCanvas.getObjects().find(
-        (obj: any) => obj.elementId === "frame-cutout-overlay"
-      );
-      if (fallbackOverlay && typeof fabricCanvas.bringToFront === "function") {
-        fabricCanvas.bringToFront(fallbackOverlay);
-      }
-
-      fabricCanvas.renderAll();
-      if (activeTarget && typeof fabricCanvas.setActiveObject === "function") {
-        fabricCanvas.setActiveObject(activeTarget);
-        fabricCanvas.renderAll();
-      }
-      setActiveObject(activeTarget || null);
-      setSelectedSlotId(slot.id);
-      pendingSlotRef.current = null;
-    };
-
-    htmlImg.onload = applyToFabric;
-    htmlImg.src = croppedDataUrl;
-    if (htmlImg.complete && htmlImg.naturalWidth > 0) {
-      applyToFabric();
-    }
+    await applyCoverPhotoToSlot(slot, croppedDataUrl);
   };
 
   // Delete currently selected element
@@ -432,6 +474,13 @@ export default function EditorPage() {
     if (!fabricCanvas || !activeObject) return;
     if (direction === "forward") {
       fabricCanvas.bringForward(activeObject);
+      // Keep frame overlay always on top
+      const overlayObj = fabricCanvas.getObjects().find(
+        (obj: any) => obj.elementId === "frame-cutout-overlay"
+      );
+      if (overlayObj && typeof fabricCanvas.bringToFront === "function") {
+        fabricCanvas.bringToFront(overlayObj);
+      }
     } else {
       fabricCanvas.sendBackwards(activeObject);
     }
