@@ -18,6 +18,7 @@ import {
   ZoomIn,
   ZoomOut,
   RotateCcw,
+  RotateCw,
   CheckCircle2,
   Image as ImageIcon,
   Move,
@@ -550,6 +551,48 @@ export default function EditorPage() {
   const currentOpacity = activeSlotFabricObj && typeof activeSlotFabricObj.opacity === "number" ? activeSlotFabricObj.opacity : (activeObject?.opacity ?? 1);
   const isFlippedX = Boolean(activeSlotFabricObj?.flipX ?? activeObject?.flipX);
 
+  const normalizeAngle = (ang: number) => {
+    let a = ang % 360;
+    if (a > 180) a -= 360;
+    if (a < -180) a += 360;
+    return Math.round(a * 10) / 10;
+  };
+
+  const detectedAngle = useMemo(() => {
+    return activeSlot?.rotation != null ? normalizeAngle(activeSlot.rotation) : 0;
+  }, [activeSlot?.rotation]);
+
+  const currentAngle = useMemo(() => {
+    if (activeSlotFabricObj && typeof activeSlotFabricObj.angle === "number") {
+      return normalizeAngle(activeSlotFabricObj.angle);
+    }
+    if (activeObject && typeof activeObject.angle === "number") {
+      return normalizeAngle(activeObject.angle);
+    }
+    return detectedAngle;
+  }, [activeSlotFabricObj, activeObject, detectedAngle]);
+
+  const sliderMin = useMemo(() => {
+    return Math.min(-45, Math.floor(detectedAngle - 15));
+  }, [detectedAngle]);
+
+  const sliderMax = useMemo(() => {
+    return Math.max(45, Math.ceil(detectedAngle + 15));
+  }, [detectedAngle]);
+
+  const handleSetSlotRotation = (newAngle: number) => {
+    if (!fabricCanvas || !selectedSlotId) return;
+    const objects = fabricCanvas.getObjects();
+    const targetObj = objects.find((o: any) => o.elementId === selectedSlotId);
+    if (!targetObj) return;
+
+    const clamped = Math.round(Math.max(sliderMin, Math.min(sliderMax, newAngle)) * 10) / 10;
+    targetObj.set("angle", clamped);
+    targetObj.setCoords();
+    fabricCanvas.renderAll();
+    setActiveObject({ ...targetObj, angle: clamped });
+  };
+
   return (
     <div className="min-h-screen bg-plum text-cream flex flex-col overflow-hidden font-poppins selection:bg-mauve selection:text-cream">
       {/* Hidden file input for uploading images */}
@@ -828,6 +871,62 @@ export default function EditorPage() {
                       onChange={(e) => updateActiveSlotProp("opacity", parseFloat(e.target.value))}
                       className="w-full accent-mauve cursor-pointer"
                     />
+                  </div>
+
+                  {/* Photo Rotation / Tilt Slider & Nudges */}
+                  <div>
+                    <div className="flex items-center justify-between text-[11px] text-dustyPink font-semibold uppercase tracking-wider mb-1.5">
+                      <div className="flex items-center gap-1.5">
+                        <RotateCw className="w-3.5 h-3.5 text-peachPink" />
+                        <span>Rotation / Tilt</span>
+                      </div>
+                      <span className="font-mono text-cream font-bold">
+                        {currentAngle > 0 ? `+${currentAngle.toFixed(1)}°` : `${currentAngle.toFixed(1)}°`}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleSetSlotRotation(currentAngle - 1)}
+                        className="px-2 py-1 rounded bg-mauve/25 hover:bg-mauve/45 border border-dustyPink/30 text-cream text-[11px] font-mono font-medium transition-colors cursor-pointer select-none active:scale-95"
+                        title="Rotate 1° counter-clockwise"
+                      >
+                        -1°
+                      </button>
+                      <input
+                        type="range"
+                        min={sliderMin}
+                        max={sliderMax}
+                        step="0.5"
+                        value={currentAngle}
+                        onChange={(e) => handleSetSlotRotation(parseFloat(e.target.value))}
+                        className="flex-1 accent-mauve cursor-pointer"
+                        title="Fine-tune photo tilt"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleSetSlotRotation(currentAngle + 1)}
+                        className="px-2 py-1 rounded bg-mauve/25 hover:bg-mauve/45 border border-dustyPink/30 text-cream text-[11px] font-mono font-medium transition-colors cursor-pointer select-none active:scale-95"
+                        title="Rotate 1° clockwise"
+                      >
+                        +1°
+                      </button>
+                    </div>
+
+                    <div className="flex items-center justify-between mt-1.5">
+                      <span className="text-[10px] text-dustyPink/70">
+                        Detected: {detectedAngle > 0 ? `+${detectedAngle.toFixed(1)}°` : `${detectedAngle.toFixed(1)}°`}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => handleSetSlotRotation(detectedAngle)}
+                        disabled={Math.abs(currentAngle - detectedAngle) < 0.1}
+                        className="text-[10px] text-dustyPink hover:text-peachPink disabled:opacity-30 disabled:hover:text-dustyPink transition-colors underline cursor-pointer disabled:cursor-not-allowed"
+                        title="Reset rotation to detected slot tilt"
+                      >
+                        Reset to detected angle
+                      </button>
+                    </div>
                   </div>
 
                   {/* Horizontal Flip & Reset */}

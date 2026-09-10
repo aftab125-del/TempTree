@@ -335,7 +335,7 @@ export default function TemplateCanvas({
 
             const slotCx = target.slotCenterX ?? (target.slotLeft != null ? target.slotLeft + slotW / 2 : target.left);
             const slotCy = target.slotCenterY ?? (target.slotTop != null ? target.slotTop + slotH / 2 : target.top);
-            const slotAngle = target.slotAngle ?? target.angle ?? 0;
+            const slotAngle = target.slotAngle != null ? target.slotAngle : (target.clipPath?.angle ?? 0);
 
             const scaledW = target.getScaledWidth();
             const scaledH = target.getScaledHeight();
