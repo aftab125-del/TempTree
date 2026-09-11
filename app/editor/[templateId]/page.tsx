@@ -1459,9 +1459,9 @@ export default function EditorPage() {
             )}
           </div>
 
-          {/* Section 2: All Template Photo Slots (for templates with multiple slots) */}
+          {/* Section 2: All Template Photo Slots (for templates with multiple slots - hidden on mobile) */}
           {photoSlots.length > 1 && (
-            <div className="p-4 rounded-2xl bg-plum/40 border border-dustyPink/20 flex flex-col gap-3">
+            <div className="hidden md:flex p-4 rounded-2xl bg-plum/40 border border-dustyPink/20 flex-col gap-3">
               <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wider text-dustyPink">
                 <div className="flex items-center gap-2">
                   <Layers className="w-3.5 h-3.5" />
