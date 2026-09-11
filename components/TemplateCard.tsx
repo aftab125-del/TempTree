@@ -40,6 +40,7 @@ export default function TemplateCard({ template }: TemplateCardProps) {
         <div className="transform transition-transform duration-700 group-hover:scale-105">
           <TemplateCanvas
             layout={template.layoutJson}
+            templateId={template.id}
             interactive={false}
             scale={0.165}
             className="shadow-md"

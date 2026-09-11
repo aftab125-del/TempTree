@@ -29,6 +29,7 @@ import {
   Sliders,
   FlipHorizontal,
   X,
+  Loader2,
 } from "lucide-react";
 
 interface PhotoSlot {
@@ -135,6 +136,13 @@ export default function EditorPage() {
   const [showMobileTools, setShowMobileTools] = useState<boolean>(false);
   const isDesktopRef = useRef<boolean | null>(null);
 
+  // Track active photo state before slot adjustment begins to guarantee photo preservation
+  const adjustingSlotPhotoRef = useRef<{
+    slotId: string;
+    src: string;
+    hasUserPhoto: boolean;
+  } | null>(null);
+
   // Dynamic responsive canvas auto-scaling on mobile (desktop remains untouched at 0.38 default)
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -183,17 +191,19 @@ export default function EditorPage() {
     if (typeof window === "undefined" || !templateId) return;
     let isCancelled = false;
 
-    getTemplate(templateId as string).then((loadedTemplate) => {
-      if (isCancelled || !loadedTemplate) return;
-      if (loadedTemplate && loadedTemplate.layoutJson) {
-        setTemplate(loadedTemplate);
-        if (loadedTemplate.layoutJson.backgroundColor) {
-          setSelectedBgColor(loadedTemplate.layoutJson.backgroundColor);
+    getTemplate(templateId as string)
+      .then((loadedTemplate) => {
+        if (isCancelled || !loadedTemplate) return;
+        if (loadedTemplate && loadedTemplate.layoutJson) {
+          setTemplate(loadedTemplate);
+          if (loadedTemplate.layoutJson.backgroundColor) {
+            setSelectedBgColor(loadedTemplate.layoutJson.backgroundColor);
+          }
         }
-      }
-    }).catch((err) => {
-      console.warn("Could not load template from template store:", err);
-    });
+      })
+      .catch((err) => {
+        console.warn("Could not load template from template store:", err);
+      });
 
     return () => {
       isCancelled = true;
@@ -207,27 +217,6 @@ export default function EditorPage() {
         fabricModuleRef.current = loaded;
       }
     });
-  }, []);
-
-  // Responsive scale calculation to fit viewport
-  useEffect(() => {
-    const computeScale = () => {
-      const isMobile = window.innerWidth < 768;
-      // Extra bottom allowance on mobile for the photo slots dock
-      const bottomAllowance = isMobile ? 180 : 150;
-      const availableHeight = window.innerHeight - bottomAllowance;
-      const availableWidth = isMobile ? window.innerWidth - 32 : window.innerWidth - 420;
-      
-      const scaleFromHeight = availableHeight / 1920;
-      const scaleFromWidth = Math.max(0.18, (availableWidth > 0 ? availableWidth : window.innerWidth - 32) / 1080);
-      
-      const optimalScale = Math.min(scaleFromHeight, scaleFromWidth);
-      setCanvasScale(Math.max(0.18, Math.min(0.48, optimalScale)));
-    };
-
-    computeScale();
-    window.addEventListener("resize", computeScale);
-    return () => window.removeEventListener("resize", computeScale);
   }, []);
 
   // Handle Canvas Ready
@@ -276,10 +265,10 @@ export default function EditorPage() {
   };
 
   const handleResetSlotPhoto = (slot: PhotoSlot) => {
-    // Revert back to original template's stock photo
-    const originalElem = template.layoutJson.elements.find((el) => el.id === slot.id) as any;
-    const originalSrc = originalElem?.src || slot.currentSrc;
-    if (!originalSrc) return;
+    // Revert back to original template's stock photo from templates.json
+    const defaultElem = initialTemplate.layoutJson.elements.find((el) => el.id === slot.id) as any;
+    const defaultSrc = defaultElem?.src || slot.currentSrc;
+    if (!defaultSrc) return;
 
     // Clear local custom thumbnail and raw photo master
     delete rawPhotosRef.current[slot.id];
@@ -295,7 +284,7 @@ export default function EditorPage() {
       return updated;
     });
 
-    applyCroppedImageToSlot(slot, originalSrc);
+    applyCroppedImageToSlot(slot, defaultSrc);
   };
 
   // ============================================================================
@@ -501,6 +490,34 @@ export default function EditorPage() {
       setActiveObject(activeTarget || null);
       setSelectedSlotId(slot.id);
       pendingSlotRef.current = null;
+
+      // Keep template layout in sync with uploaded photo and persist to store
+      setTemplate((prevTemplate) => {
+        if (!prevTemplate) return prevTemplate;
+        const updatedElements = prevTemplate.layoutJson.elements.map((el) => {
+          if (el.id === slot.id) {
+            return {
+              ...el,
+              src: imageSrc,
+            };
+          }
+          return el;
+        });
+
+        const updatedTemplate: Template = {
+          ...prevTemplate,
+          layoutJson: {
+            ...prevTemplate.layoutJson,
+            elements: updatedElements,
+          },
+        };
+
+        saveTemplate(updatedTemplate).catch((err) => {
+          console.warn("Error saving photo update to store:", err);
+        });
+
+        return updatedTemplate;
+      });
     };
 
     htmlImg.onload = applyToFabric;
@@ -655,6 +672,23 @@ export default function EditorPage() {
         evented: false,
       });
     }
+
+    // Capture the slot's photo source and user-photo status before adjustment begins
+    const userPhotoSrc =
+      slotThumbnails[slot.id] ||
+      rawPhotosRef.current[slot.id] ||
+      rawPhotos[slot.id] ||
+      null;
+    const currentPhotoSrc =
+      userPhotoSrc ||
+      (photoObj && ((photoObj as any)._element?.src || (photoObj as any).getSrc?.())) ||
+      slot.currentSrc;
+
+    adjustingSlotPhotoRef.current = {
+      slotId: slot.id,
+      src: currentPhotoSrc,
+      hasUserPhoto: Boolean(userPhotoSrc),
+    };
 
     // Create the interactive adjuster rectangle on top of canvas
     const adjusterRect = new fabric.Rect({
@@ -812,16 +846,59 @@ export default function EditorPage() {
     fabricCanvas.remove(adjusterRect);
     adjusterRectRef.current = null;
 
-    // Restore photo object interaction
+    // Restore photo object interaction and recompute clipPath & coverScale
     const photoObj = fabricCanvas.getObjects().find((o: any) => o.elementId === targetSlotId);
     if (photoObj) {
+      if (photoObj.clipPath) {
+        photoObj.clipPath.set({
+          left: finalCx,
+          top: finalCy,
+          width: finalW,
+          height: finalH,
+          angle: finalAngle,
+          originX: "center",
+          originY: "center",
+          scaleX: 1,
+          scaleY: 1,
+        });
+        photoObj.clipPath.setCoords();
+      }
+
+      const imgW = photoObj.width || 1;
+      const imgH = photoObj.height || 1;
+      const coverScale = Math.max(finalW / imgW, finalH / imgH);
+
       photoObj.set({
+        left: finalCx,
+        top: finalCy,
+        scaleX: coverScale,
+        scaleY: coverScale,
+        angle: finalAngle,
         selectable: true,
         evented: true,
       });
+
+      (photoObj as any).slotCenterX = finalCx;
+      (photoObj as any).slotCenterY = finalCy;
+      (photoObj as any).slotAngle = finalAngle;
+      (photoObj as any).slotWidth = finalW;
+      (photoObj as any).slotHeight = finalH;
+      (photoObj as any).slotLeft = finalLeft;
+      (photoObj as any).slotTop = finalTop;
+      (photoObj as any).targetWidth = finalW;
+      (photoObj as any).targetHeight = finalH;
+      (photoObj as any).aspectRatio = +(finalW / finalH).toFixed(3);
+
       photoObj.setCoords();
       fabricCanvas.setActiveObject(photoObj);
     }
+
+    // Determine photo source to preserve (never revert user photo back to placeholder)
+    const savedPhotoInfo = adjustingSlotPhotoRef.current;
+    const photoToPreserve =
+      (savedPhotoInfo && savedPhotoInfo.slotId === targetSlotId && savedPhotoInfo.hasUserPhoto)
+        ? savedPhotoInfo.src
+        : slotThumbnails[targetSlotId] || rawPhotosRef.current[targetSlotId];
 
     // Update state and persist to IndexedDB
     setTemplate((prevTemplate) => {
@@ -829,6 +906,7 @@ export default function EditorPage() {
         if (el.id === targetSlotId) {
           return {
             ...el,
+            src: photoToPreserve || (el as any).src,
             left: finalLeft,
             top: finalTop,
             width: finalW,
@@ -858,6 +936,7 @@ export default function EditorPage() {
       return updatedTemplate;
     });
 
+    adjustingSlotPhotoRef.current = null;
     setIsAdjustingSlot(false);
     setAdjustingGeometry(null);
     fabricCanvas.renderAll();
@@ -1093,6 +1172,7 @@ export default function EditorPage() {
           <div className="relative z-10 transition-transform duration-200 my-auto">
             <TemplateCanvas
               layout={template.layoutJson}
+              templateId={template.id}
               interactive={true}
               scale={canvasScale}
               onCanvasReady={handleCanvasReady}

@@ -7,6 +7,7 @@ import { Loader2 } from "lucide-react";
 
 interface TemplateCanvasProps {
   layout: LayoutJson;
+  templateId?: string;
   interactive?: boolean;
   scale?: number; // Zoom/scaling multiplier relative to 1080x1920
   onCanvasReady?: (fabricCanvas: any, fabricInstance?: any) => void;
@@ -25,6 +26,7 @@ interface TemplateCanvasProps {
  */
 export default function TemplateCanvas({
   layout,
+  templateId,
   interactive = false,
   scale = 0.25,
   onCanvasReady,
@@ -35,7 +37,15 @@ export default function TemplateCanvas({
   const fabricRef = useRef<any>(null);
   const scaleRef = useRef(scale);
   scaleRef.current = scale;
+  const layoutRef = useRef(layout);
+  layoutRef.current = layout;
   const [isLoading, setIsLoading] = useState(true);
+
+  // Key by template ID to prevent destroying the live interactive canvas on state updates
+  const templateKey =
+    templateId ||
+    (layout as any)?.id ||
+    (layout?.elements?.[0]?.id ? `layout-${layout.elements[0].id}` : "template-canvas");
 
   useEffect(() => {
     let isMounted = true;
@@ -453,7 +463,7 @@ export default function TemplateCanvas({
         containerRef.current.innerHTML = "";
       }
     };
-  }, [layout, interactive]);
+  }, [templateKey, interactive]);
 
   // Handle responsive zoom and scale changes smoothly in-place without re-creating canvas
   useEffect(() => {
