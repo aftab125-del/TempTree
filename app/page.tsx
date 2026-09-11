@@ -9,6 +9,7 @@ import FeaturesBento from "@/components/FeaturesBento";
 import FAQSection from "@/components/FAQSection";
 import FinalCTASection from "@/components/FinalCTASection";
 import MobileAtmosphericBackground from "@/components/ui/MobileAtmosphericBackground";
+import MobileSakuraHero from "@/components/MobileSakuraHero";
 
 export default function HomePage() {
   return (
@@ -17,11 +18,19 @@ export default function HomePage() {
       <Navbar />
 
       {/* ------------------------------------------------------------- */}
-      {/* PART 2: SAKURA SCROLL HERO (300vh scroll container)            */}
-      {/* Fixed background pinned at z-0 with dark overlay at z-[1]      */}
-      {/* Freezes on frame 300 once scroll reaches 100%                 */}
+      {/* MOBILE CONDENSED HERO (120vh, instant load, settled bloom)     */}
       {/* ------------------------------------------------------------- */}
-      <SakuraScrollHero />
+      <div className="md:hidden">
+        <MobileSakuraHero />
+      </div>
+
+      {/* ------------------------------------------------------------- */}
+      {/* DESKTOP SAKURA SCROLL HERO (300vh scroll, 300 frames)          */}
+      {/* Desktop remains 100% untouched                                */}
+      {/* ------------------------------------------------------------- */}
+      <div className="hidden md:block">
+        <SakuraScrollHero />
+      </div>
 
       {/* ------------------------------------------------------------- */}
       {/* ------------------------------------------------------------- */}

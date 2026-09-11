@@ -138,6 +138,11 @@ export default function SakuraScrollHero() {
       isCoarsePointerRef.current = window.matchMedia("(hover: none) and (pointer: coarse)").matches;
       reduceMotionRef.current = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
       laidOutWRef.current = window.innerWidth;
+
+      // On mobile viewports, skip desktop 300-frame progressive downloads entirely
+      if (window.innerWidth < 768) {
+        return;
+      }
     }
 
     imagesRef.current = images;
@@ -460,9 +465,9 @@ export default function SakuraScrollHero() {
   return (
     <>
       {/* ------------------------------------------------------------------ */}
-      {/* HAIRLINE FLIGHT PROGRESS BAR (Direct DOM transform)                */}
+      {/* HAIRLINE FLIGHT PROGRESS BAR (Direct DOM transform - Desktop)      */}
       {/* ------------------------------------------------------------------ */}
-      <div className="fixed top-0 left-0 right-0 h-[2.5px] z-50 pointer-events-none bg-dustyPink/20">
+      <div className="hidden md:block fixed top-0 left-0 right-0 h-[2.5px] z-50 pointer-events-none bg-dustyPink/20">
         <div
           ref={progressBarRef}
           className="h-full bg-gradient-to-r from-dustyMauve via-peachPink to-blushWhite origin-left will-change-transform transform-gpu shadow-[0_0_12px_rgba(226,180,189,0.8)]"
@@ -471,16 +476,16 @@ export default function SakuraScrollHero() {
       </div>
 
       {/* ------------------------------------------------------------------ */}
-      {/* FIXED POSITION BACKGROUND CANVAS (HOMEPAGE ONLY)                   */}
+      {/* FIXED POSITION BACKGROUND CANVAS (HOMEPAGE DESKTOP ONLY)           */}
       {/* ------------------------------------------------------------------ */}
-      <div className="fixed inset-0 w-full h-full overflow-hidden pointer-events-none z-0">
+      <div className="hidden md:block fixed inset-0 w-full h-full overflow-hidden pointer-events-none z-0">
         <canvas ref={canvasRef} className="w-full h-full object-cover block will-change-transform transform-gpu" />
       </div>
 
       {/* ------------------------------------------------------------------ */}
-      {/* ATMOSPHERIC DEPTH & DRIFTING PETALS LAYER                          */}
+      {/* ATMOSPHERIC DEPTH & DRIFTING PETALS LAYER (Desktop)                */}
       {/* ------------------------------------------------------------------ */}
-      <div className="fixed inset-0 pointer-events-none z-[1] overflow-hidden">
+      <div className="hidden md:block fixed inset-0 pointer-events-none z-[1] overflow-hidden">
         <div className="absolute -top-[20%] left-1/2 -translate-x-1/2 w-[900px] h-[600px] rounded-full bg-gradient-to-b from-peachPink/15 via-dustyMauve/10 to-transparent blur-3xl animate-ambient-glow" />
         <div className="absolute -bottom-[20%] right-[10%] w-[600px] h-[600px] rounded-full bg-gradient-to-t from-dustyMauve/10 to-transparent blur-3xl pointer-events-none" />
 
@@ -528,12 +533,12 @@ export default function SakuraScrollHero() {
       </div>
 
       {/* ------------------------------------------------------------------ */}
-      {/* FIXED DARK OVERLAY (bg-black/25)                                   */}
+      {/* FIXED DARK OVERLAY (bg-black/25 - Desktop)                         */}
       {/* ------------------------------------------------------------------ */}
-      <div className="fixed inset-0 bg-black/25 pointer-events-none z-[2]" />
+      <div className="hidden md:block fixed inset-0 bg-black/25 pointer-events-none z-[2]" />
 
       {/* ------------------------------------------------------------------ */}
-      {/* CHAPTER ROUTE INDICATOR (Only re-renders on chapter change)         */}
+      {/* CHAPTER ROUTE INDICATOR (Desktop Only)                             */}
       {/* ------------------------------------------------------------------ */}
       <aside
         aria-label="Story chapter navigation"
@@ -571,10 +576,10 @@ export default function SakuraScrollHero() {
       </aside>
 
       {/* ------------------------------------------------------------------ */}
-      {/* PRELOADER SCREEN                                                   */}
+      {/* PRELOADER SCREEN (Desktop Only)                                    */}
       {/* ------------------------------------------------------------------ */}
       {!isLoaded && (
-        <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-charcoal text-blushWhite px-6">
+        <div className="hidden md:flex fixed inset-0 z-50 flex-col items-center justify-center bg-charcoal text-blushWhite px-6">
           <div className="flex items-center space-x-3 mb-6 animate-pulse">
             <Sparkles className="w-8 h-8 text-dustyMauve" />
             <h1 className="font-playfair text-4xl sm:text-5xl font-bold tracking-wider text-blushWhite">
@@ -600,11 +605,11 @@ export default function SakuraScrollHero() {
       )}
 
       {/* ------------------------------------------------------------------ */}
-      {/* 300VH SCROLL TRACKER & OVERLAYS CONTAINER                          */}
+      {/* 300VH SCROLL TRACKER & OVERLAYS CONTAINER (Desktop Only)           */}
       {/* ------------------------------------------------------------------ */}
       <div
         ref={containerRef}
-        className="relative z-10 w-full h-[300vh] selection:bg-dustyMauve selection:text-charcoal pointer-events-none"
+        className="hidden md:block relative z-10 w-full h-[300vh] selection:bg-dustyMauve selection:text-charcoal pointer-events-none"
       >
         <div className="sticky top-0 w-full h-screen overflow-hidden flex items-center justify-center pointer-events-none">
           {/* OVERLAY 1: Brand Wordmark (Direct DOM Opacity & Translate) */}

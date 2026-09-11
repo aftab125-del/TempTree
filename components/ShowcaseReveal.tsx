@@ -194,7 +194,7 @@ export default function ShowcaseReveal() {
       <div
         ref={containerRef}
         onPointerDown={handlePointerDown}
-        className="relative w-full aspect-[16/10] sm:aspect-[16/9] lg:aspect-[21/9] min-h-[420px] rounded-3xl overflow-hidden border border-dustyMauve/30 shadow-[0_30px_70px_-20px_rgba(0,0,0,0.9)] cursor-ew-resize select-none touch-none group"
+        className="relative w-full aspect-[16/10] sm:aspect-[16/9] lg:aspect-[21/9] min-h-[420px] rounded-3xl overflow-hidden border border-dustyMauve/30 shadow-[0_30px_70px_-20px_rgba(0,0,0,0.9)] cursor-ew-resize select-none touch-pan-y group"
       >
         {/* Ambient background glow */}
         <div
