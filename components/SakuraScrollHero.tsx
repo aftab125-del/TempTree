@@ -14,9 +14,49 @@ import { ArrowDown, Sparkles } from "lucide-react";
  * - Fixed background freezes on frame 300 at 100% scroll.
  */
 
-const TOTAL_FRAMES = 300;
-const LERP_FACTOR = 0.18;
+const TOTAL_FRAMES = 150;
+const LERP_FACTOR = 0.55;
 const LERP_EPSILON = 0.0005;
+const CONCURRENCY = 6;
+
+const getFrameNumber = (index: number): number => {
+  if (index >= TOTAL_FRAMES - 1) return 300;
+  return Math.min(300, Math.max(1, Math.round(1 + (index / (TOTAL_FRAMES - 1)) * 299)));
+};
+
+const getFrameUrl = (index: number): string => {
+  const frameNum = getFrameNumber(index);
+  const pad = String(frameNum).padStart(3, "0");
+  return `/sakura-frames/ezgif-frame-${pad}.webp`;
+};
+
+type FrameSource = ImageBitmap | HTMLImageElement;
+
+async function loadFrameBitmap(url: string): Promise<FrameSource> {
+  if (typeof window !== "undefined" && typeof createImageBitmap === "function") {
+    try {
+      const res = await fetch(url, { cache: "force-cache" });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const blob = await res.blob();
+      return await createImageBitmap(blob);
+    } catch {
+      // Fallback to Image element below
+    }
+  }
+
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      if ("decode" in img) {
+        img.decode().then(() => resolve(img)).catch(() => resolve(img));
+      } else {
+        resolve(img);
+      }
+    };
+    img.onerror = reject;
+    img.src = url;
+  });
+}
 
 interface Chapter {
   id: string;
@@ -100,10 +140,14 @@ export default function SakuraScrollHero() {
   const wordmarkRef = useRef<HTMLDivElement>(null);
   const categoryOverlayRef = useRef<HTMLDivElement>(null);
   const transitionPromptRef = useRef<HTMLDivElement>(null);
-  const pillRefs = useRef<(HTMLButtonElement | null)[]>([]);
+  const pillRefs = useRef<(HTMLDivElement | null)[]>([]);
 
-  // Frame cache
-  const imagesRef = useRef<HTMLImageElement[]>([]);
+  // Frame cache (pre-decoded ImageBitmaps or HTMLImageElements)
+  const imagesRef = useRef<(FrameSource | null)[]>([]);
+
+  // Scroll geometry refs (cached to eliminate layout thrashing in onScroll)
+  const containerTopRef = useRef<number>(0);
+  const totalScrollableDistanceRef = useRef<number>(1);
 
   // Scrub engine values
   const targetProgressRef = useRef<number>(0);
@@ -113,7 +157,6 @@ export default function SakuraScrollHero() {
 
   // Discrete state tracker refs
   const currentChapterRef = useRef<number>(0);
-  const currentCategoryRef = useRef<number>(0);
 
   // Viewport & device detection
   const laidOutWRef = useRef<number>(0);
@@ -124,22 +167,21 @@ export default function SakuraScrollHero() {
   const [loadProgress, setLoadProgress] = useState<number>(0);
   const [isLoaded, setIsLoaded] = useState<boolean>(false);
   const [activeChapterIndex, setActiveChapterIndex] = useState<number>(0);
-  const [activeCategoryIndex, setActiveCategoryIndex] = useState<number>(0);
 
   // ============================================================================
-  // STEP 1: Preload frame 1 immediately, then stream remaining frames in background
+  // STEP 1: Preload Frame 0 & Frame 149 immediately, stream 1..148 in background
   // ============================================================================
   useEffect(() => {
     let isMounted = true;
     let loadedCount = 0;
-    const images: HTMLImageElement[] = new Array(TOTAL_FRAMES);
+    const images: (FrameSource | null)[] = new Array(TOTAL_FRAMES).fill(null);
 
     if (typeof window !== "undefined") {
       isCoarsePointerRef.current = window.matchMedia("(hover: none) and (pointer: coarse)").matches;
       reduceMotionRef.current = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
       laidOutWRef.current = window.innerWidth;
 
-      // On mobile viewports, skip desktop 300-frame progressive downloads entirely
+      // On mobile viewports, skip desktop frame loading entirely
       if (window.innerWidth < 768) {
         return;
       }
@@ -147,72 +189,86 @@ export default function SakuraScrollHero() {
 
     imagesRef.current = images;
 
-    // Watchdog safety fallback: ensure preloader dismisses even on poor mobile connectivity
+    // Watchdog safety fallback: ensure hero becomes visible within 2s even on slow networks
     const safetyTimer = setTimeout(() => {
       if (isMounted) {
         setIsLoaded(true);
       }
     }, 2000);
 
-    // Load Frame 1 with high priority
-    const firstImg = new Image();
-    images[0] = firstImg;
-
-    const onFirstFrameReady = () => {
-      if (!isMounted) return;
+    let isInitialReady = false;
+    const onInitialReady = () => {
+      if (!isMounted || isInitialReady) return;
+      isInitialReady = true;
       clearTimeout(safetyTimer);
-      loadedCount++;
-      setLoadProgress(Math.floor((loadedCount / TOTAL_FRAMES) * 100));
-
-      // Make hero and scrolling interactive immediately!
       setIsLoaded(true);
       handleResize();
       drawFrame(0);
-
-      // Progressively load remaining frames 2..300 in the background
       loadRemainingFrames();
     };
 
-    firstImg.onload = onFirstFrameReady;
-    firstImg.onerror = onFirstFrameReady; // Fallback so page never hangs
-    firstImg.src = "/sakura-frames/ezgif-frame-001.webp";
+    // Load Frame 0 (first frame) immediately to unlock hero interaction in milliseconds
+    loadFrameBitmap(getFrameUrl(0))
+      .then((bitmap) => {
+        if (!isMounted) return;
+        images[0] = bitmap;
+        loadedCount++;
+        setLoadProgress(Math.floor((loadedCount / TOTAL_FRAMES) * 100));
+        onInitialReady();
+      })
+      .catch(() => {
+        if (!isMounted) return;
+        onInitialReady();
+      });
 
-    if (firstImg.complete) {
-      onFirstFrameReady();
-    }
+    // Also preload final bloom frame (index 149 / frame 300) so end state is instant
+    loadFrameBitmap(getFrameUrl(TOTAL_FRAMES - 1))
+      .then((bitmap) => {
+        if (!isMounted) return;
+        images[TOTAL_FRAMES - 1] = bitmap;
+        loadedCount++;
+      })
+      .catch(() => {});
 
-    // Background progressive loader for frames 2..300
+    // Progressively stream remaining frames (1..148) with controlled concurrency
     const loadRemainingFrames = () => {
-      for (let i = 2; i <= TOTAL_FRAMES; i++) {
-        const index = i - 1;
-        const padIndex = String(i).padStart(3, "0");
-        const img = new Image();
+      let nextIndex = 1;
+      const endIndex = TOTAL_FRAMES - 1;
 
-        const onFrameLoaded = () => {
-          if (!isMounted) return;
-          loadedCount++;
-          setLoadProgress(Math.floor((loadedCount / TOTAL_FRAMES) * 100));
-        };
-
-        img.onload = onFrameLoaded;
-        img.onerror = onFrameLoaded;
-        img.src = `/sakura-frames/ezgif-frame-${padIndex}.webp`;
-        images[index] = img;
-
-        if (img.complete) {
-          onFrameLoaded();
+      const workers = Array.from({ length: CONCURRENCY }, async () => {
+        while (nextIndex < endIndex && isMounted) {
+          const idx = nextIndex++;
+          try {
+            const bitmap = await loadFrameBitmap(getFrameUrl(idx));
+            if (!isMounted) break;
+            images[idx] = bitmap;
+            loadedCount++;
+            if (loadedCount % 15 === 0 || loadedCount === TOTAL_FRAMES) {
+              setLoadProgress(Math.floor((loadedCount / TOTAL_FRAMES) * 100));
+            }
+          } catch {
+            // Continue next frame
+          }
         }
-      }
+      });
+
+      Promise.all(workers).catch(() => {});
     };
 
     return () => {
       isMounted = false;
       clearTimeout(safetyTimer);
+      imagesRef.current.forEach((item) => {
+        if (item && "close" in item && typeof item.close === "function") {
+          item.close();
+        }
+      });
+      imagesRef.current = [];
     };
   }, []);
 
   // ============================================================================
-  // STEP 2: Draw frame with aspect ratio cover
+  // STEP 2: Draw frame with aspect ratio cover & resolution clamping
   // ============================================================================
   const drawFrame = (frameIndex: number) => {
     const canvas = canvasRef.current;
@@ -223,22 +279,34 @@ export default function SakuraScrollHero() {
     const clampedIndex = Math.max(0, Math.min(TOTAL_FRAMES - 1, frameIndex));
     let img = imagesRef.current[clampedIndex];
 
-    if (!img || !img.complete || img.naturalWidth === 0) {
+    // Nearest-frame fallback while frames stream in background
+    if (!img) {
       for (let j = clampedIndex - 1; j >= 0; j--) {
         const candidate = imagesRef.current[j];
-        if (candidate && candidate.complete && candidate.naturalWidth > 0) {
+        if (candidate) {
           img = candidate;
           break;
         }
       }
+      if (!img) {
+        for (let j = clampedIndex + 1; j < TOTAL_FRAMES; j++) {
+          const candidate = imagesRef.current[j];
+          if (candidate) {
+            img = candidate;
+            break;
+          }
+        }
+      }
     }
 
-    if (!img || !img.complete || img.naturalWidth === 0) return;
+    if (!img) return;
 
     const canvasWidth = canvas.width;
     const canvasHeight = canvas.height;
-    const imgWidth = img.naturalWidth;
-    const imgHeight = img.naturalHeight;
+    const imgWidth = "naturalWidth" in img ? img.naturalWidth : img.width;
+    const imgHeight = "naturalHeight" in img ? img.naturalHeight : img.height;
+    if (!imgWidth || !imgHeight) return;
+
     const imgRatio = imgWidth / imgHeight;
     const canvasRatio = canvasWidth / canvasHeight;
 
@@ -261,18 +329,32 @@ export default function SakuraScrollHero() {
     lastRenderedIndexRef.current = clampedIndex;
   };
 
+  const updateScrollBounds = () => {
+    const container = containerRef.current;
+    if (!container) return;
+    const rect = container.getBoundingClientRect();
+    containerTopRef.current = rect.top + window.scrollY;
+    totalScrollableDistanceRef.current = Math.max(1, rect.height - window.innerHeight);
+  };
+
   const handleResize = () => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    const dpr = Math.min(window.devicePixelRatio || 1, 2); // Cap at 2x DPR for buttery performance
-    const displayWidth = window.innerWidth;
-    const displayHeight = window.innerHeight;
+    // Cap at 1.25x DPR and max 1920x1080 buffer to prevent GPU fill-rate exhaustion on Retina/4K
+    const dpr = Math.min(window.devicePixelRatio || 1, 1.25);
+    const maxWidth = 1920;
+    const maxHeight = 1080;
 
-    if (canvas.width !== displayWidth * dpr || canvas.height !== displayHeight * dpr) {
-      canvas.width = displayWidth * dpr;
-      canvas.height = displayHeight * dpr;
+    const targetWidth = Math.min(Math.round(window.innerWidth * dpr), maxWidth);
+    const targetHeight = Math.min(Math.round(window.innerHeight * dpr), maxHeight);
+
+    if (canvas.width !== targetWidth || canvas.height !== targetHeight) {
+      canvas.width = targetWidth;
+      canvas.height = targetHeight;
     }
+
+    updateScrollBounds();
 
     const targetFrame = Math.round(currentProgressRef.current * (TOTAL_FRAMES - 1));
     drawFrame(targetFrame);
@@ -354,12 +436,13 @@ export default function SakuraScrollHero() {
   };
 
   // ============================================================================
-  // STEP 4: On-Demand RAF Loop (Zero CPU when idle)
+  // STEP 4: On-Demand RAF Loop (Zero forced reflows, 0% CPU when idle)
   // ============================================================================
   useEffect(() => {
     if (!isLoaded) return;
 
     handleResize();
+    updateScrollBounds();
     drawFrame(0);
 
     const tick = () => {
@@ -408,15 +491,12 @@ export default function SakuraScrollHero() {
     };
 
     const onScroll = () => {
-      const container = containerRef.current;
-      if (!container) return;
+      const scrollY = window.scrollY;
+      const totalDist = totalScrollableDistanceRef.current;
+      if (totalDist <= 0) return;
 
-      const rect = container.getBoundingClientRect();
-      const totalScrollableDistance = rect.height - window.innerHeight;
-      if (totalScrollableDistance <= 0) return;
-
-      const currentScroll = -rect.top;
-      const progress = Math.min(1, Math.max(0, currentScroll / totalScrollableDistance));
+      const currentScroll = scrollY - containerTopRef.current;
+      const progress = Math.min(1, Math.max(0, currentScroll / totalDist));
       targetProgressRef.current = progress;
 
       startTickIfNeeded();
@@ -451,13 +531,12 @@ export default function SakuraScrollHero() {
     if (!container) return;
 
     if (chapter.id === "gallery" || chapter.progress >= 1.0) {
-      const targetScroll = container.offsetTop + container.offsetHeight - window.innerHeight + 60;
+      const targetScroll = containerTopRef.current + totalScrollableDistanceRef.current + 60;
       window.scrollTo({ top: targetScroll, behavior: "smooth" });
       return;
     }
 
-    const totalScrollableDistance = container.offsetHeight - window.innerHeight;
-    const targetScroll = container.offsetTop + chapter.progress * totalScrollableDistance;
+    const targetScroll = containerTopRef.current + chapter.progress * totalScrollableDistanceRef.current;
     window.scrollTo({ top: targetScroll, behavior: "smooth" });
   };
 
