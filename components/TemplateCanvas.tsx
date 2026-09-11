@@ -33,6 +33,8 @@ export default function TemplateCanvas({
 }: TemplateCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const fabricRef = useRef<any>(null);
+  const scaleRef = useRef(scale);
+  scaleRef.current = scale;
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -63,8 +65,9 @@ export default function TemplateCanvas({
         const nativeWidth = layout.width || 1080;
         const nativeHeight = layout.height || 1920;
 
-        const displayWidth = nativeWidth * scale;
-        const displayHeight = nativeHeight * scale;
+        const currentScale = scaleRef.current ?? scale;
+        const displayWidth = nativeWidth * currentScale;
+        const displayHeight = nativeHeight * currentScale;
 
         const canvasEl = document.createElement("canvas");
         containerRef.current.appendChild(canvasEl);
@@ -80,7 +83,7 @@ export default function TemplateCanvas({
         });
 
         // Set zoom so internal coordinate space remains 1080x1920
-        canvasInstance.setZoom(scale);
+        canvasInstance.setZoom(currentScale);
 
         // Render Background Gradient if specified
         if (layout.backgroundGradient) {
@@ -417,6 +420,14 @@ export default function TemplateCanvas({
         }
 
         fabricRef.current = canvasInstance;
+        if (scaleRef.current && scaleRef.current !== currentScale) {
+          canvasInstance.setDimensions({
+            width: nativeWidth * scaleRef.current,
+            height: nativeHeight * scaleRef.current,
+          });
+          canvasInstance.setZoom(scaleRef.current);
+          canvasInstance.renderAll();
+        }
         if (isMounted) {
           setIsLoading(false);
           onCanvasReady?.(canvasInstance, fabric);

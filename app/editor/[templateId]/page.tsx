@@ -28,6 +28,7 @@ import {
   RefreshCw,
   Sliders,
   FlipHorizontal,
+  X,
 } from "lucide-react";
 
 interface PhotoSlot {
@@ -129,6 +130,53 @@ export default function EditorPage() {
 
   // Hidden file input ref for image uploads
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Mobile Bottom Dock: Secondary tools drawer state
+  const [showMobileTools, setShowMobileTools] = useState<boolean>(false);
+  const isDesktopRef = useRef<boolean | null>(null);
+
+  // Dynamic responsive canvas auto-scaling on mobile (desktop remains untouched at 0.38 default)
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const calculateScale = () => {
+      const width = window.innerWidth;
+      const isDesktop = width >= 768;
+
+      if (isDesktop) {
+        if (isDesktopRef.current === false) {
+          // Returning from mobile viewport to desktop breakpoint: restore desktop default
+          setCanvasScale(0.38);
+        }
+        isDesktopRef.current = true;
+        return;
+      }
+
+      isDesktopRef.current = false;
+      const height = window.innerHeight;
+
+      // Available width: window width minus side padding (16px each side = 32px)
+      const availableWidth = Math.max(240, width - 32);
+      // Available height: window height minus compact header (~56px), dock (~140px), safe area & padding (~24px)
+      const availableHeight = Math.max(280, height - 220);
+
+      const scaleW = availableWidth / 1080;
+      const scaleH = availableHeight / 1920;
+      // Use the smaller scale so the full 1080x1920 story canvas fits completely without overflow
+      const autoScale = Math.min(scaleW, scaleH);
+      // Clamp between 0.18 and 0.40
+      const clampedScale = Math.max(0.18, Math.min(autoScale, 0.40));
+      setCanvasScale(Number(clampedScale.toFixed(3)));
+    };
+
+    calculateScale();
+    window.addEventListener("resize", calculateScale);
+    window.addEventListener("orientationchange", calculateScale);
+    return () => {
+      window.removeEventListener("resize", calculateScale);
+      window.removeEventListener("orientationchange", calculateScale);
+    };
+  }, []);
 
   // Load session-scoped template from IndexedDB (with sessionStorage fallback)
   useEffect(() => {
@@ -951,40 +999,40 @@ export default function EditorPage() {
       {/* ------------------------------------------------------------- */}
       {/* TOP APP HEADER / TOOLBAR */}
       {/* ------------------------------------------------------------- */}
-      <header className="h-16 px-4 sm:px-6 bg-plum-dark/95 border-b border-dustyPink/20 flex items-center justify-between z-30 backdrop-blur-md">
+      <header className="h-14 sm:h-16 px-3 sm:px-6 bg-plum-dark/95 border-b border-dustyPink/20 flex items-center justify-between z-30 backdrop-blur-md">
         {/* Left: Back Link & Template Info */}
-        <div className="flex items-center space-x-3">
+        <div className="flex items-center space-x-2 sm:space-x-3 min-w-0">
           <Link
             href="/gallery"
-            className="p-2 rounded-full hover:bg-mauve/30 text-cream transition-colors flex items-center gap-1.5 text-xs font-semibold"
+            className="p-2 rounded-full hover:bg-mauve/30 text-cream transition-colors flex items-center gap-1.5 text-xs font-semibold flex-shrink-0"
             title="Upload another template"
           >
             <ArrowLeft className="w-4 h-4" />
             <span className="hidden sm:inline">New Template</span>
           </Link>
 
-          <div className="h-4 w-px bg-dustyPink/30 hidden sm:block" />
+          <div className="h-4 w-px bg-dustyPink/30 hidden sm:block flex-shrink-0" />
 
-          <div className="flex flex-col">
-            <h1 className="font-playfair text-base sm:text-lg font-bold text-cream truncate max-w-[180px] sm:max-w-xs">
+          <div className="flex flex-col min-w-0">
+            <h1 className="font-playfair text-sm sm:text-lg font-bold text-cream truncate max-w-[110px] xs:max-w-[160px] sm:max-w-xs">
               {template.name}
             </h1>
-            <span className="text-[10px] uppercase tracking-widest text-dustyPink font-semibold">
-              {template.category} &middot; 1080 &times; 1920 Story
+            <span className="text-[9px] sm:text-[10px] uppercase tracking-wider text-dustyPink font-semibold truncate max-w-[110px] xs:max-w-[160px] sm:max-w-xs">
+              {template.category} &middot; 1080 &times; 1920
             </span>
           </div>
         </div>
 
         {/* Right: Zoom controls, Upload Photo & Export Button */}
-        <div className="flex items-center space-x-2 sm:space-x-3">
+        <div className="flex items-center space-x-1.5 sm:space-x-3 flex-shrink-0">
           {/* Upload Custom Photo Button */}
           <button
             onClick={triggerImageUpload}
-            className="inline-flex items-center gap-1.5 px-3 py-2 sm:px-4 sm:py-2.5 rounded-full bg-mauve/25 hover:bg-mauve/45 border border-dustyPink/30 text-cream font-medium text-xs sm:text-sm transition-all shadow-sm"
+            className="inline-flex items-center gap-1.5 p-2 sm:px-4 sm:py-2.5 rounded-full bg-mauve/25 hover:bg-mauve/45 border border-dustyPink/30 text-cream font-medium text-xs sm:text-sm transition-all shadow-sm"
             title="Upload or replace photo"
           >
             <Upload className="w-4 h-4 text-dustyPink" />
-            <span>Upload Photo</span>
+            <span className="hidden sm:inline">Upload Photo</span>
           </button>
 
           {/* Zoom In/Out */}
@@ -1012,16 +1060,17 @@ export default function EditorPage() {
           <button
             onClick={handleExportPNG}
             disabled={isExporting}
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-cream text-plum font-semibold text-xs sm:text-sm hover:bg-dustyPink transition-all shadow-lg hover:shadow-xl transform active:scale-95 disabled:opacity-50 cursor-pointer"
+            className="inline-flex items-center gap-1.5 sm:gap-2 px-3 sm:px-5 py-2 sm:py-2.5 rounded-full bg-cream text-plum font-semibold text-xs sm:text-sm hover:bg-dustyPink transition-all shadow-lg hover:shadow-xl transform active:scale-95 disabled:opacity-50 cursor-pointer"
           >
             {isExporting ? (
-              <Sparkles className="w-4 h-4 animate-spin text-mauve" />
+              <Sparkles className="w-3.5 h-3.5 sm:w-4 sm:h-4 animate-spin text-mauve" />
             ) : exportSuccess ? (
-              <CheckCircle2 className="w-4 h-4 text-green-700" />
+              <CheckCircle2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-green-700" />
             ) : (
-              <Download className="w-4 h-4 text-mauve" />
+              <Download className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-mauve" />
             )}
-            <span>{exportSuccess ? "Downloaded!" : isExporting ? "Exporting..." : "Export Story (PNG)"}</span>
+            <span className="hidden sm:inline">{exportSuccess ? "Downloaded!" : isExporting ? "Exporting..." : "Export Story (PNG)"}</span>
+            <span className="sm:hidden">{exportSuccess ? "Saved!" : isExporting ? "..." : "Export"}</span>
           </button>
         </div>
       </header>
@@ -1030,8 +1079,8 @@ export default function EditorPage() {
       {/* MAIN WORKSPACE: CANVAS + SIDEBAR TOOLS */}
       {/* ------------------------------------------------------------- */}
       <div className="flex-grow flex flex-col md:flex-row overflow-hidden relative">
-        {/* Left / Center Viewport Area: Interactive Canvas + Mobile Slot Selector */}
-        <div className="flex-grow flex flex-col items-center justify-between p-2 sm:p-6 overflow-auto bg-gradient-to-br from-plum-dark via-plum to-[#2A2A2A] relative">
+        {/* Left / Center Viewport Area: Interactive Canvas */}
+        <div className="flex-grow flex flex-col items-center justify-center p-2 sm:p-6 overflow-hidden md:overflow-auto bg-gradient-to-br from-plum-dark via-plum to-[#2A2A2A] relative">
           {/* Subtle grid pattern background (desktop) */}
           <div className="absolute inset-0 opacity-10 bg-[radial-gradient(#FFF5F5_1px,transparent_1px)] [background-size:24px_24px] pointer-events-none hidden md:block" />
 
@@ -1048,7 +1097,7 @@ export default function EditorPage() {
               scale={canvasScale}
               onCanvasReady={handleCanvasReady}
               onSelectionChange={handleSelectionChange}
-              className="border-2 border-dustyPink/40 ring-8 ring-plum/50 shadow-2xl"
+              className="border md:border-2 border-dustyPink/40 ring-4 md:ring-8 ring-plum/50 shadow-2xl rounded-sm"
             />
           </div>
 
@@ -1057,103 +1106,12 @@ export default function EditorPage() {
             <Move className="w-3 h-3 text-dustyPink" />
             <span>Click any text to edit &bull; Tap photo slot to crop &amp; replace</span>
           </div>
-
-          {/* MOBILE-FIRST PHOTO SLOTS DOCK (Visible on mobile/tablet screens) */}
-          {photoSlots.length > 0 && (
-            <div className="md:hidden w-full max-w-lg mt-3 px-2 z-20">
-              <div className="p-3 rounded-2xl bg-plum-dark/95 border border-dustyPink/30 shadow-2xl backdrop-blur-md">
-                <div className="flex items-center justify-between px-1 mb-2">
-                  <div className="flex items-center gap-1.5 text-xs font-semibold text-dustyPink">
-                    <Crop className="w-3.5 h-3.5" />
-                    <span>Tap Photo to Crop &amp; Change</span>
-                  </div>
-                  <span className="text-[10px] text-cream/60 font-mono">
-                    {photoSlots.length} {photoSlots.length === 1 ? "Slot" : "Slots"}
-                  </span>
-                </div>
-
-                {/* Horizontal scrollable slot cards */}
-                <div className="flex items-center gap-2.5 overflow-x-auto pb-1 scrollbar-thin">
-                  {photoSlots.map((slot) => {
-                    const isSelected = selectedSlotId === slot.id;
-                    const previewImg = slotThumbnails[slot.id] || slot.currentSrc;
-                    return (
-                      <div
-                        key={slot.id}
-                        onClick={() => handleSelectSlot(slot)}
-                        className={`flex-shrink-0 flex items-center gap-2.5 p-2 rounded-xl border transition-all cursor-pointer ${
-                          isSelected
-                            ? "bg-mauve/30 border-peachPink ring-2 ring-peachPink/50 shadow-lg"
-                            : "bg-plum/60 border-dustyPink/20 hover:border-dustyPink/40"
-                        }`}
-                      >
-                        <div className="relative w-12 h-12 rounded-lg overflow-hidden border border-cream/20 bg-charcoal flex-shrink-0 shadow-inner">
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img
-                            src={previewImg}
-                            alt={slot.label}
-                            className="w-full h-full object-cover"
-                          />
-                        </div>
-
-                        <div className="flex flex-col">
-                          <span className="text-xs font-semibold text-cream leading-tight">
-                            {slot.label}
-                          </span>
-                          <span className="text-[10px] text-dustyPink font-mono">
-                            {Math.round(slot.width)}&times;{Math.round(slot.height)} ({slot.aspectRatio}:1)
-                          </span>
-                          <div className="flex items-center gap-1 mt-1">
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handlePickPhotoForSlot(slot);
-                              }}
-                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-cream text-plum hover:bg-dustyPink text-[10px] font-semibold transition-all shadow-sm"
-                            >
-                              <Upload className="w-2.5 h-2.5" />
-                              <span>Replace</span>
-                            </button>
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleAdjustCropForSlot(slot);
-                              }}
-                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-mauve/30 hover:bg-mauve/50 text-cream text-[10px] font-medium transition-all"
-                            >
-                              <Crop className="w-2.5 h-2.5 text-peachPink" />
-                              <span>Crop</span>
-                            </button>
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleSelectSlot(slot);
-                                startAdjustSlotMode(slot);
-                              }}
-                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-mauve/30 hover:bg-mauve/50 text-cream text-[10px] font-medium transition-all"
-                              title="Adjust slot geometry"
-                            >
-                              <Move className="w-2.5 h-2.5 text-peachPink" />
-                              <span>Adjust</span>
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
-          )}
         </div>
 
         {/* ----------------------------------------------------------- */}
-        {/* RIGHT EDITING TOOLBAR */}
+        {/* RIGHT EDITING TOOLBAR (Desktop only - 100% untouched on desktop) */}
         {/* ----------------------------------------------------------- */}
-        <aside className="w-full md:w-84 lg:w-96 bg-plum-dark/95 border-t md:border-t-0 md:border-l border-dustyPink/20 p-5 overflow-y-auto max-h-[45vh] md:max-h-none flex flex-col gap-5 backdrop-blur-md z-20">
+        <aside className="hidden md:flex md:w-84 lg:w-96 bg-plum-dark/95 border-l border-dustyPink/20 p-5 overflow-y-auto flex-col gap-5 backdrop-blur-md z-20">
           {/* Section 1: Active Picture Studio */}
           <div className="p-4 rounded-2xl bg-plum/60 border border-dustyPink/30 shadow-lg flex flex-col gap-4">
             <div className="flex items-center justify-between">
@@ -1568,6 +1526,302 @@ export default function EditorPage() {
             </ul>
           </div>
         </aside>
+      </div>
+
+      {/* ------------------------------------------------------------- */}
+      {/* MOBILE BOTTOM ACTION DOCK (Thumb-reach controls on mobile/touch) */}
+      {/* ------------------------------------------------------------- */}
+      <div className="md:hidden flex-shrink-0 z-30 bg-plum-dark/95 border-t border-dustyPink/30 backdrop-blur-xl shadow-2xl px-3 pt-2 pb-3 safe-area-bottom relative">
+        {/* Expandable Secondary Tools Drawer (Opacity, Flip, Reset) */}
+        {showMobileTools && activeSlot && (
+          <div className="absolute bottom-full left-3 right-3 mb-2 p-3.5 rounded-2xl bg-plum-dark/98 border border-dustyPink/30 shadow-2xl backdrop-blur-xl space-y-3 z-40 animate-in fade-in slide-in-from-bottom-2">
+            <div className="flex items-center justify-between border-b border-dustyPink/20 pb-2">
+              <span className="text-xs font-bold text-cream flex items-center gap-1.5">
+                <Sliders className="w-3.5 h-3.5 text-peachPink" />
+                <span>Photo Adjustments ({activeSlot.label})</span>
+              </span>
+              <button
+                type="button"
+                onClick={() => setShowMobileTools(false)}
+                className="p-1 rounded-full text-cream/70 hover:text-cream hover:bg-mauve/30"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+
+            {/* Opacity Slider */}
+            <div>
+              <div className="flex items-center justify-between text-[10px] text-dustyPink font-semibold uppercase tracking-wider mb-1">
+                <span>Photo Opacity</span>
+                <span className="font-mono text-cream font-bold">
+                  {Math.round(currentOpacity * 100)}%
+                </span>
+              </div>
+              <input
+                type="range"
+                min="0.1"
+                max="1"
+                step="0.05"
+                value={currentOpacity}
+                onChange={(e) => updateActiveSlotProp("opacity", parseFloat(e.target.value))}
+                className="w-full accent-mauve cursor-pointer h-1.5"
+              />
+            </div>
+
+            {/* Flip Horizontal & Reset Buttons */}
+            <div className="flex items-center gap-2 pt-1">
+              <button
+                type="button"
+                onClick={handleToggleFlipX}
+                className={`flex-1 py-2 px-2.5 rounded-lg border text-xs font-medium flex items-center justify-center gap-1.5 transition-all ${
+                  isFlippedX
+                    ? "bg-mauve text-cream border-cream shadow-sm"
+                    : "bg-plum/60 text-cream/80 border-dustyPink/20 hover:border-dustyPink/40 hover:text-cream"
+                }`}
+              >
+                <FlipHorizontal className="w-3.5 h-3.5" />
+                <span>{isFlippedX ? "Mirrored" : "Flip Horizontal"}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  handleResetSlotPhoto(activeSlot);
+                  setShowMobileTools(false);
+                }}
+                className="py-2 px-3 rounded-lg bg-plum/60 hover:bg-red-950/40 border border-dustyPink/20 hover:border-red-400/40 text-cream/70 hover:text-red-300 text-xs font-medium flex items-center justify-center gap-1.5 transition-all"
+                title="Reset to default template photo"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span>Reset Photo</span>
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Dynamic Mode: Normal Mode vs. Slot Adjustment Mode */}
+        {isAdjustingSlot && adjustingGeometry ? (
+          /* Slot Adjustment Controller Mode */
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5 text-xs font-bold text-peachPink">
+                <Move className="w-3.5 h-3.5" />
+                <span>Adjusting Slot Frame</span>
+              </div>
+              <span className="font-mono text-xs text-cream font-semibold px-2 py-0.5 rounded-md bg-mauve/30 border border-peachPink/30">
+                {adjustingGeometry.rotation > 0
+                  ? `+${adjustingGeometry.rotation.toFixed(1)}°`
+                  : `${adjustingGeometry.rotation.toFixed(1)}°`}
+              </span>
+            </div>
+
+            {/* Nudge Controls Bar */}
+            <div className="flex items-center justify-between gap-1 bg-plum/60 p-1.5 rounded-xl border border-dustyPink/20 text-xs">
+              {/* Tilt Nudges */}
+              <div className="flex items-center gap-1">
+                <span className="text-[10px] text-dustyPink font-semibold mr-0.5">Tilt</span>
+                <button
+                  type="button"
+                  onClick={() => handleNudgeSlot("rotation", -1)}
+                  className="px-2 py-1 rounded bg-mauve/30 hover:bg-mauve/50 border border-dustyPink/30 text-cream font-mono text-[11px] active:scale-95"
+                >
+                  -1°
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleNudgeSlot("rotation", 1)}
+                  className="px-2 py-1 rounded bg-mauve/30 hover:bg-mauve/50 border border-dustyPink/30 text-cream font-mono text-[11px] active:scale-95"
+                >
+                  +1°
+                </button>
+              </div>
+
+              <div className="h-4 w-px bg-dustyPink/20" />
+
+              {/* Position Nudges */}
+              <div className="flex items-center gap-1">
+                <span className="text-[10px] text-dustyPink font-semibold mr-0.5">Pos</span>
+                <button
+                  type="button"
+                  onClick={() => handleNudgeSlot("cx", -3)}
+                  className="px-2 py-1 rounded bg-mauve/30 hover:bg-mauve/50 border border-dustyPink/30 text-cream font-mono text-xs active:scale-95"
+                  title="Move Left"
+                >
+                  &larr;
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleNudgeSlot("cx", 3)}
+                  className="px-2 py-1 rounded bg-mauve/30 hover:bg-mauve/50 border border-dustyPink/30 text-cream font-mono text-xs active:scale-95"
+                  title="Move Right"
+                >
+                  &rarr;
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleNudgeSlot("cy", -3)}
+                  className="px-2 py-1 rounded bg-mauve/30 hover:bg-mauve/50 border border-dustyPink/30 text-cream font-mono text-xs active:scale-95"
+                  title="Move Up"
+                >
+                  &uarr;
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleNudgeSlot("cy", 3)}
+                  className="px-2 py-1 rounded bg-mauve/30 hover:bg-mauve/50 border border-dustyPink/30 text-cream font-mono text-xs active:scale-95"
+                  title="Move Down"
+                >
+                  &darr;
+                </button>
+              </div>
+
+              <div className="h-4 w-px bg-dustyPink/20" />
+
+              {/* Size Nudges */}
+              <div className="flex items-center gap-1">
+                <span className="text-[10px] text-dustyPink font-semibold mr-0.5">Size</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleNudgeSlot("width", -4);
+                    handleNudgeSlot("height", -4);
+                  }}
+                  className="px-2 py-1 rounded bg-mauve/30 hover:bg-mauve/50 border border-dustyPink/30 text-cream font-mono text-xs active:scale-95"
+                  title="Shrink"
+                >
+                  -
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleNudgeSlot("width", 4);
+                    handleNudgeSlot("height", 4);
+                  }}
+                  className="px-2 py-1 rounded bg-mauve/30 hover:bg-mauve/50 border border-dustyPink/30 text-cream font-mono text-xs active:scale-95"
+                  title="Expand"
+                >
+                  +
+                </button>
+              </div>
+            </div>
+
+            {/* Confirm & Reset Bar */}
+            <div className="flex items-center gap-2 pt-0.5">
+              <button
+                type="button"
+                onClick={stopAdjustSlotMode}
+                className="flex-1 py-2.5 px-3 rounded-xl bg-peachPink text-plum font-bold text-xs flex items-center justify-center gap-1.5 transition-all shadow-md active:scale-95 cursor-pointer"
+              >
+                <Check className="w-4 h-4" />
+                <span>Done Adjusting Slot</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => activeSlot && handleResetSlotGeometry(activeSlot)}
+                className="py-2.5 px-3 rounded-xl bg-plum/60 hover:bg-plum/90 border border-dustyPink/30 text-cream/80 text-xs flex items-center justify-center gap-1 transition-all active:scale-95"
+                title="Reset geometry"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span>Reset</span>
+              </button>
+            </div>
+          </div>
+        ) : (
+          /* Standard Normal Mode */
+          <div className="space-y-2">
+            {/* Slot Switcher Bar (compact horizontal chips if >= 1 slot) */}
+            {photoSlots.length > 0 && (
+              <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+                {photoSlots.map((slot) => {
+                  const isSelected = selectedSlotId === slot.id;
+                  const previewImg = slotThumbnails[slot.id] || slot.currentSrc;
+                  return (
+                    <button
+                      key={slot.id}
+                      type="button"
+                      onClick={() => handleSelectSlot(slot)}
+                      className={`flex-shrink-0 flex items-center gap-2 px-2 py-1 rounded-xl border transition-all text-left ${
+                        isSelected
+                          ? "bg-mauve/35 border-peachPink ring-1 ring-peachPink/50 text-cream shadow-sm"
+                          : "bg-plum/50 border-dustyPink/20 text-cream/70 hover:text-cream"
+                      }`}
+                    >
+                      <div className="relative w-7 h-7 rounded-lg overflow-hidden border border-cream/20 bg-charcoal flex-shrink-0">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={previewImg}
+                          alt={slot.label}
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="text-[11px] font-semibold leading-tight line-clamp-1">
+                          {slot.label}
+                        </span>
+                        <span className="text-[9px] text-dustyPink font-mono leading-none">
+                          {slot.aspectRatio}:1
+                        </span>
+                      </div>
+                    </button>
+                  );
+                })}
+
+                {/* More Tools Toggle Button */}
+                {activeSlot && (
+                  <button
+                    type="button"
+                    onClick={() => setShowMobileTools((prev) => !prev)}
+                    className={`flex-shrink-0 flex items-center gap-1 px-2.5 py-1.5 rounded-xl border text-xs font-medium transition-all ml-auto ${
+                      showMobileTools
+                        ? "bg-peachPink text-plum border-peachPink"
+                        : "bg-plum/50 border-dustyPink/20 text-cream/80 hover:text-cream"
+                    }`}
+                    title="Photo tools"
+                  >
+                    <Sliders className="w-3.5 h-3.5" />
+                    <span className="text-[11px]">Tools</span>
+                  </button>
+                )}
+              </div>
+            )}
+
+            {/* High-frequency Action Buttons Row */}
+            <div className="flex items-center gap-2">
+              {/* Replace / Upload Photo */}
+              <button
+                type="button"
+                onClick={() => activeSlot ? handlePickPhotoForSlot(activeSlot) : triggerImageUpload()}
+                className="flex-1 py-2.5 px-3 rounded-xl bg-cream hover:bg-dustyPink text-plum font-bold text-xs transition-all shadow-md active:scale-95 flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                <Upload className="w-3.5 h-3.5 text-plum" />
+                <span>Replace</span>
+              </button>
+
+              {/* Adjust Crop */}
+              <button
+                type="button"
+                onClick={() => activeSlot && handleAdjustCropForSlot(activeSlot)}
+                disabled={!activeSlot}
+                className="flex-1 py-2.5 px-3 rounded-xl bg-mauve/30 hover:bg-mauve/50 border border-dustyPink/30 text-cream font-medium text-xs transition-all active:scale-95 flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+              >
+                <Crop className="w-3.5 h-3.5 text-peachPink" />
+                <span>Crop</span>
+              </button>
+
+              {/* Adjust Slot Boundary */}
+              <button
+                type="button"
+                onClick={() => activeSlot && startAdjustSlotMode(activeSlot)}
+                disabled={!activeSlot}
+                className="flex-1 py-2.5 px-3 rounded-xl bg-mauve/30 hover:bg-mauve/50 border border-dustyPink/30 text-cream font-medium text-xs transition-all active:scale-95 flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+              >
+                <Move className="w-3.5 h-3.5 text-peachPink" />
+                <span>Adjust Slot</span>
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Exact-Proportion Image Cropper Modal */}
