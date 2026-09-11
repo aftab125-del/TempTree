@@ -9,6 +9,7 @@ import TemplateCanvas from "@/components/TemplateCanvas";
 import ImageCropperModal from "@/components/ImageCropperModal";
 import { loadFabric } from "@/lib/fabric";
 import { getTemplate, saveTemplate } from "@/lib/template-store";
+import MobileAtmosphericBackground from "@/components/ui/MobileAtmosphericBackground";
 import {
   ArrowLeft,
   Download,
@@ -1031,8 +1032,13 @@ export default function EditorPage() {
       <div className="flex-grow flex flex-col md:flex-row overflow-hidden relative">
         {/* Left / Center Viewport Area: Interactive Canvas + Mobile Slot Selector */}
         <div className="flex-grow flex flex-col items-center justify-between p-2 sm:p-6 overflow-auto bg-gradient-to-br from-plum-dark via-plum to-[#2A2A2A] relative">
-          {/* Subtle grid pattern background */}
-          <div className="absolute inset-0 opacity-10 bg-[radial-gradient(#FFF5F5_1px,transparent_1px)] [background-size:24px_24px] pointer-events-none" />
+          {/* Subtle grid pattern background (desktop) */}
+          <div className="absolute inset-0 opacity-10 bg-[radial-gradient(#FFF5F5_1px,transparent_1px)] [background-size:24px_24px] pointer-events-none hidden md:block" />
+
+          {/* Mobile-only Zen atmospheric background (desktop remains 100% untouched) */}
+          <div className="md:hidden absolute inset-0 overflow-hidden pointer-events-none">
+            <MobileAtmosphericBackground variant="zen" className="h-full" />
+          </div>
 
           {/* Interactive Fabric.js Canvas */}
           <div className="relative z-10 transition-transform duration-200 my-auto">

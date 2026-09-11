@@ -25,6 +25,7 @@ import { Template } from "@/types/template";
 import { DetectedSlot } from "@/lib/frame-converter";
 import { saveTemplate } from "@/lib/template-store";
 import TemplateDesignGuidelines from "@/components/TemplateDesignGuidelines";
+import MobileAtmosphericBackground from "@/components/ui/MobileAtmosphericBackground";
 
 interface PreviewData {
   placeholders: DetectedSlot[];
@@ -346,7 +347,12 @@ export default function UploadTemplateFlowPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#140e13] text-[#FAF7F2] flex flex-col font-poppins selection:bg-[#E2B4BD] selection:text-[#181116]">
+    <div className="min-h-screen bg-[#140e13] text-[#FAF7F2] flex flex-col font-poppins selection:bg-[#E2B4BD] selection:text-[#181116] relative">
+      {/* Mobile-only static atmospheric background (desktop remains 100% untouched) */}
+      <div className="md:hidden fixed inset-0 pointer-events-none z-0 overflow-hidden">
+        <MobileAtmosphericBackground variant="ambient" className="h-full" />
+      </div>
+
       <Navbar />
 
       {/* Hero Header */}

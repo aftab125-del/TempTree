@@ -8,6 +8,7 @@ import ShowcaseReveal from "@/components/ShowcaseReveal";
 import FeaturesBento from "@/components/FeaturesBento";
 import FAQSection from "@/components/FAQSection";
 import FinalCTASection from "@/components/FinalCTASection";
+import MobileAtmosphericBackground from "@/components/ui/MobileAtmosphericBackground";
 
 export default function HomePage() {
   return (
@@ -30,7 +31,12 @@ export default function HomePage() {
         id="examples"
         className="relative z-10 text-cream py-24 px-4 sm:px-6 lg:px-8 border-t border-dustyPink/25"
       >
-        <div className="max-w-7xl mx-auto">
+        {/* Mobile-only static atmospheric background (desktop remains 100% untouched over fixed canvas) */}
+        <div className="md:hidden absolute inset-0 -z-10 overflow-hidden pointer-events-none">
+          <MobileAtmosphericBackground variant="ambient" className="h-full" />
+        </div>
+
+        <div className="max-w-7xl mx-auto relative z-10">
           {/* Section Header */}
           <div className="flex flex-col md:flex-row md:items-end justify-between mb-16 gap-6">
             <div>
