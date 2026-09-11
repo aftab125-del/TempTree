@@ -60,6 +60,7 @@ export default function UploadTemplateFlowPage() {
   const [activeTab, setActiveTab] = useState<"overlay" | "cutout">("overlay");
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const reviewSectionRef = useRef<HTMLDivElement>(null);
 
   // Starter example templates from templates.json for quick inspiration
   const starterTemplates = (templatesData as Template[]).slice(0, 3);
@@ -141,6 +142,13 @@ export default function UploadTemplateFlowPage() {
 
       setPreviewData(data);
       setActiveTab("overlay");
+
+      // Smooth scroll down to review panel on mobile/tablet viewports (< 1024px)
+      if (typeof window !== "undefined" && window.innerWidth < 1024) {
+        setTimeout(() => {
+          reviewSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+        }, 120);
+      }
     } catch (err: any) {
       setErrorMsg(err.message || "An unexpected error occurred during conversion.");
     } finally {
@@ -571,7 +579,7 @@ export default function UploadTemplateFlowPage() {
               type="button"
               onClick={() => handleConvert()}
               disabled={!file || isConverting}
-              className="w-full py-3.5 px-6 rounded-2xl bg-gradient-to-r from-[#E2B4BD] to-[#F7D6D0] hover:brightness-105 text-[#181116] font-bold text-sm shadow-xl shadow-black/40 transition-all flex items-center justify-center gap-2 transform active:scale-98 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+              className="w-full min-h-[48px] py-3.5 px-6 rounded-2xl bg-gradient-to-r from-[#E2B4BD] to-[#F7D6D0] hover:brightness-105 text-[#181116] font-bold text-sm shadow-xl shadow-black/40 transition-all flex items-center justify-center gap-2 transform active:scale-98 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
             >
               {isConverting ? (
                 <>
@@ -590,7 +598,10 @@ export default function UploadTemplateFlowPage() {
           {/* ----------------------------------------------------------- */}
           {/* RIGHT PANEL: VISUAL DETECTION REVIEW (7 cols)               */}
           {/* ----------------------------------------------------------- */}
-          <div className="lg:col-span-7 bg-white/[0.04] border border-white/10 rounded-3xl p-6 shadow-2xl flex flex-col gap-6 backdrop-blur-xl min-h-[500px]">
+          <div
+            ref={reviewSectionRef}
+            className="lg:col-span-7 bg-white/[0.04] border border-white/10 rounded-3xl p-4 sm:p-6 shadow-2xl flex flex-col gap-6 backdrop-blur-xl min-h-[500px]"
+          >
             <div>
               <h2 className="font-playfair text-xl font-bold text-[#FAF7F2]">
                 2. Visual Detection Review
@@ -608,25 +619,25 @@ export default function UploadTemplateFlowPage() {
                     <button
                       type="button"
                       onClick={() => setActiveTab("overlay")}
-                      className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 ${
+                      className={`min-h-[44px] px-3.5 sm:px-4 py-2 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 active:scale-95 cursor-pointer ${
                         activeTab === "overlay"
                           ? "bg-white/[0.14] text-[#FAF7F2] border border-white/20 shadow-sm"
                           : "text-[#FAF7F2]/60 hover:text-[#FAF7F2] hover:bg-white/[0.06]"
                       }`}
                     >
-                      <Eye className="w-3.5 h-3.5" />
+                      <Eye className="w-4 h-4" />
                       <span>Overlay Slots ({previewData.placeholders.length})</span>
                     </button>
                     <button
                       type="button"
                       onClick={() => setActiveTab("cutout")}
-                      className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 ${
+                      className={`min-h-[44px] px-3.5 sm:px-4 py-2 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 active:scale-95 cursor-pointer ${
                         activeTab === "cutout"
                           ? "bg-white/[0.14] text-[#FAF7F2] border border-white/20 shadow-sm"
                           : "text-[#FAF7F2]/60 hover:text-[#FAF7F2] hover:bg-white/[0.06]"
                       }`}
                     >
-                      <Layers className="w-3.5 h-3.5" />
+                      <Layers className="w-4 h-4" />
                       <span>Cutout Frame PNG</span>
                     </button>
                   </div>
@@ -636,14 +647,13 @@ export default function UploadTemplateFlowPage() {
                   </span>
                 </div>
 
-                {/* Visual Viewport Area */}
-                <div className="flex justify-center bg-black/50 rounded-2xl p-4 sm:p-6 overflow-hidden border border-white/10 shadow-inner">
+                {/* Visual Viewport Area (Fluid and Responsive) */}
+                <div className="flex justify-center bg-black/50 rounded-2xl p-3 sm:p-6 overflow-hidden border border-white/10 shadow-inner">
                   {activeTab === "overlay" && (
                     <div
-                      className="relative rounded-xl overflow-hidden shadow-2xl border border-white/20 bg-black"
+                      className="relative rounded-xl overflow-hidden shadow-2xl border border-white/20 bg-black w-full max-w-[320px] sm:max-w-sm mx-auto"
                       style={{
-                        width: "280px",
-                        height: "498px",
+                        aspectRatio: `${previewData.dimensions.width} / ${previewData.dimensions.height}`,
                       }}
                     >
                       {/* Resized Base Image */}
@@ -654,19 +664,21 @@ export default function UploadTemplateFlowPage() {
                         className="w-full h-full object-cover"
                       />
 
-                      {/* Render Colored Bounding Boxes over detected slots */}
+                      {/* Render Colored Bounding Boxes over detected slots using exact percentages */}
                       {previewData.placeholders.map((slot, idx) => {
-                        const scaleW = 280 / previewData.dimensions.width;
-                        const scaleH = 498 / previewData.dimensions.height;
+                        const leftPct = (slot.x / previewData.dimensions.width) * 100;
+                        const topPct = (slot.y / previewData.dimensions.height) * 100;
+                        const widthPct = (slot.width / previewData.dimensions.width) * 100;
+                        const heightPct = (slot.height / previewData.dimensions.height) * 100;
 
                         return (
                           <div
                             key={idx}
                             style={{
-                              left: `${slot.x * scaleW}px`,
-                              top: `${slot.y * scaleH}px`,
-                              width: `${slot.width * scaleW}px`,
-                              height: `${slot.height * scaleH}px`,
+                              left: `${leftPct}%`,
+                              top: `${topPct}%`,
+                              width: `${widthPct}%`,
+                              height: `${heightPct}%`,
                             }}
                             className="absolute border-2 border-emerald-400 bg-emerald-500/25 flex flex-col items-center justify-center text-center p-1 pointer-events-none shadow-sm animate-pulse"
                           >
@@ -684,10 +696,9 @@ export default function UploadTemplateFlowPage() {
 
                   {activeTab === "cutout" && (
                     <div
-                      className="relative rounded-xl overflow-hidden shadow-2xl border border-white/20 bg-[repeating-conic-gradient(#201820_0%_25%,#352430_0%_50%)] [background-size:16px_16px]"
+                      className="relative rounded-xl overflow-hidden shadow-2xl border border-white/20 bg-[repeating-conic-gradient(#201820_0%_25%,#352430_0%_50%)] [background-size:16px_16px] w-full max-w-[320px] sm:max-w-sm mx-auto"
                       style={{
-                        width: "280px",
-                        height: "498px",
+                        aspectRatio: `${previewData.dimensions.width} / ${previewData.dimensions.height}`,
                       }}
                     >
                       {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -712,18 +723,18 @@ export default function UploadTemplateFlowPage() {
                       <button
                         type="button"
                         onClick={handleAddSlot}
-                        className="px-2.5 py-1 rounded-lg bg-white/[0.08] hover:bg-white/[0.16] text-[#FAF7F2] text-[11px] font-semibold flex items-center gap-1 transition-all border border-white/10"
+                        className="min-h-[44px] px-3.5 py-2 rounded-xl bg-white/[0.08] hover:bg-white/[0.16] text-[#FAF7F2] text-xs font-semibold flex items-center gap-1.5 transition-all border border-white/10 active:scale-95 cursor-pointer"
                       >
-                        <Plus className="w-3 h-3" />
+                        <Plus className="w-3.5 h-3.5" />
                         <span>Add Slot</span>
                       </button>
                       <button
                         type="button"
                         onClick={handleRecutFrame}
-                        className="px-2.5 py-1 rounded-lg bg-[#E2B4BD]/20 hover:bg-[#E2B4BD]/30 text-[#F7D6D0] text-[11px] font-semibold flex items-center gap-1 transition-all border border-[#E2B4BD]/30"
+                        className="min-h-[44px] px-3.5 py-2 rounded-xl bg-[#E2B4BD]/20 hover:bg-[#E2B4BD]/30 text-[#F7D6D0] text-xs font-semibold flex items-center gap-1.5 transition-all border border-[#E2B4BD]/30 active:scale-95 cursor-pointer"
                         title="Re-cut transparent holes according to updated coordinates"
                       >
-                        <RefreshCw className="w-3 h-3" />
+                        <RefreshCw className="w-3.5 h-3.5" />
                         <span>Re-cut Holes</span>
                       </button>
                     </div>
@@ -738,10 +749,10 @@ export default function UploadTemplateFlowPage() {
                       {previewData.placeholders.map((slot, idx) => (
                         <div
                           key={idx}
-                          className="flex items-center justify-between gap-3 p-2.5 rounded-xl bg-white/[0.04] border border-white/10 text-xs"
+                          className="flex items-center justify-between gap-3 p-2.5 rounded-xl bg-white/[0.04] border border-white/10 text-xs min-h-[44px]"
                         >
                           <div className="flex items-center gap-2">
-                            <span className="w-5 h-5 rounded-md bg-white/[0.1] text-[#FAF7F2] flex items-center justify-center font-mono font-bold text-[10px] border border-white/15">
+                            <span className="w-6 h-6 rounded-md bg-white/[0.1] text-[#FAF7F2] flex items-center justify-center font-mono font-bold text-[11px] border border-white/15">
                               {idx + 1}
                             </span>
                             <span className="font-semibold text-[#FAF7F2] text-xs">
@@ -761,10 +772,11 @@ export default function UploadTemplateFlowPage() {
                           <button
                             type="button"
                             onClick={() => handleDeleteSlot(idx)}
-                            className="p-1.5 rounded-lg text-red-400 hover:bg-red-500/20 transition-colors"
+                            className="w-11 h-11 min-w-[44px] min-h-[44px] rounded-xl text-red-400 hover:bg-red-500/20 transition-colors flex items-center justify-center active:scale-95 cursor-pointer"
                             title="Delete this slot"
+                            aria-label={`Delete slot ${idx + 1}`}
                           >
-                            <Trash2 className="w-3.5 h-3.5" />
+                            <Trash2 className="w-4 h-4" />
                           </button>
                         </div>
                       ))}
@@ -778,7 +790,7 @@ export default function UploadTemplateFlowPage() {
                     type="button"
                     onClick={handleContinueToEditor}
                     disabled={isOpening}
-                    className="w-full sm:flex-1 py-3.5 px-6 rounded-2xl bg-gradient-to-r from-[#E2B4BD] to-[#F7D6D0] hover:brightness-105 text-[#181116] font-bold text-sm shadow-xl shadow-black/40 transition-all flex items-center justify-center gap-2 transform active:scale-98 cursor-pointer"
+                    className="w-full sm:flex-1 min-h-[48px] py-3.5 px-6 rounded-2xl bg-gradient-to-r from-[#E2B4BD] to-[#F7D6D0] hover:brightness-105 text-[#181116] font-bold text-sm shadow-xl shadow-black/40 transition-all flex items-center justify-center gap-2 transform active:scale-98 cursor-pointer"
                   >
                     {isOpening ? (
                       <>
@@ -796,7 +808,7 @@ export default function UploadTemplateFlowPage() {
                   <button
                     type="button"
                     onClick={handleDiscard}
-                    className="px-4 py-3 rounded-2xl border border-white/20 text-[#FAF7F2]/80 hover:text-[#FAF7F2] hover:bg-white/[0.06] text-xs font-semibold transition-all w-full sm:w-auto"
+                    className="w-full sm:w-auto min-h-[48px] px-5 py-3 rounded-2xl border border-white/20 text-[#FAF7F2]/80 hover:text-[#FAF7F2] hover:bg-white/[0.06] text-xs font-semibold transition-all flex items-center justify-center active:scale-98 cursor-pointer"
                   >
                     Upload Different Frame
                   </button>

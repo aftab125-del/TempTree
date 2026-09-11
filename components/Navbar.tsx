@@ -63,7 +63,7 @@ export default function Navbar() {
         {/* Brand Logo & Wordmark with Kage Lantern Glow */}
         <Link
           href="/"
-          className="flex items-center space-x-2.5 group focus:outline-none"
+          className="flex items-center space-x-2.5 group focus:outline-none min-h-[44px]"
         >
           <div className="relative w-8 h-8 rounded-full bg-mauve/25 border border-dustyPink/40 flex items-center justify-center group-hover:scale-110 transition-transform">
             <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-peachPink shadow-[0_0_8px_#F7D6D0] animate-pulse" />
@@ -121,7 +121,7 @@ export default function Navbar() {
         <div className="flex items-center space-x-3">
           <Link
             href="/gallery"
-            className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-xs sm:text-sm font-semibold tracking-wide transition-all shadow-md hover:shadow-lg transform active:scale-95 ${
+            className={`inline-flex items-center gap-2 px-4 sm:px-5 py-2.5 min-h-[44px] rounded-full text-xs sm:text-sm font-semibold tracking-wide transition-all shadow-md hover:shadow-lg transform active:scale-95 ${
               isScrolled
                 ? "bg-plum text-cream hover:bg-plum-light"
                 : "bg-cream text-plum hover:bg-dustyPink hover:text-plum"

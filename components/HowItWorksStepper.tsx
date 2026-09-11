@@ -188,7 +188,17 @@ const STEP_TILES: Record<string, TileItem[]> = {
 export default function HowItWorksStepper() {
   const [activeStep, setActiveStep] = useState<number>(0);
   const [isPaused, setIsPaused] = useState<boolean>(false);
+  const [isMobile, setIsMobile] = useState<boolean>(false);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Responsive mobile viewport detection (< 640px)
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const checkMobile = () => setIsMobile(window.innerWidth < 640);
+    checkMobile();
+    window.addEventListener("resize", checkMobile);
+    return () => window.removeEventListener("resize", checkMobile);
+  }, []);
 
   // Auto-advance stepper every 6 seconds unless hovered
   useEffect(() => {
@@ -210,7 +220,7 @@ export default function HowItWorksStepper() {
   return (
     <section
       id="how-it-works"
-      className="relative z-10 py-20 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto w-full"
+      className="relative z-10 py-20 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto w-full overflow-hidden"
       onMouseEnter={() => setIsPaused(true)}
       onMouseLeave={() => setIsPaused(false)}
     >
@@ -322,18 +332,18 @@ export default function HowItWorksStepper() {
           {/* ============================================================== */}
           <div className="lg:col-span-6 flex items-center justify-center">
             <div
-              className="w-full max-w-md lg:max-w-lg transition-transform duration-500 ease-out will-change-transform"
+              className="w-full max-w-md lg:max-w-lg transition-transform duration-500 ease-out will-change-transform overflow-hidden sm:overflow-visible"
               style={{
-                perspective: "1200px",
+                perspective: isMobile ? "none" : "1200px",
               }}
             >
-              {/* 3D Tilted Device Card (matching the tablet in the user reference photo) */}
+              {/* 3D Tilted Device Card (matching the tablet in the user reference photo; flattened on mobile) */}
               <motion.div
                 animate={{
-                  rotateY: activeStep === 0 ? -9 : activeStep === 1 ? -6 : -8,
-                  rotateX: activeStep === 0 ? 5 : activeStep === 1 ? 3 : 4,
-                  rotateZ: activeStep === 0 ? -1 : activeStep === 1 ? 0 : -1,
-                  y: [0, -4, 0],
+                  rotateY: isMobile ? 0 : activeStep === 0 ? -9 : activeStep === 1 ? -6 : -8,
+                  rotateX: isMobile ? 0 : activeStep === 0 ? 5 : activeStep === 1 ? 3 : 4,
+                  rotateZ: isMobile ? 0 : activeStep === 0 ? -1 : activeStep === 1 ? 0 : -1,
+                  y: isMobile ? 0 : [0, -4, 0],
                 }}
                 transition={{
                   rotateY: { type: "spring", stiffness: 180, damping: 22 },
@@ -416,7 +426,7 @@ export default function HowItWorksStepper() {
                     <button
                       onClick={() => setActiveStep(0)}
                       aria-label="Upload step"
-                      className={`p-2.5 rounded-full transition-all duration-300 ${
+                      className={`w-11 h-11 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-full transition-all duration-300 ${
                         activeStep === 0
                           ? "bg-cream text-charcoal shadow-md scale-105"
                           : "text-cream/60 hover:text-cream hover:bg-white/5"
@@ -428,7 +438,7 @@ export default function HowItWorksStepper() {
                     <button
                       onClick={() => setActiveStep(1)}
                       aria-label="Detect slots step"
-                      className={`p-2.5 rounded-full transition-all duration-300 ${
+                      className={`w-11 h-11 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-full transition-all duration-300 ${
                         activeStep === 1
                           ? "bg-cream text-charcoal shadow-md scale-105"
                           : "text-cream/60 hover:text-cream hover:bg-white/5"
@@ -440,7 +450,7 @@ export default function HowItWorksStepper() {
                     <button
                       onClick={() => setActiveStep(1)}
                       aria-label="Layer cutouts"
-                      className={`p-2.5 rounded-full transition-all duration-300 ${
+                      className={`w-11 h-11 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-full transition-all duration-300 ${
                         activeStep === 1
                           ? "bg-dustyMauve/30 text-peachPink"
                           : "text-cream/60 hover:text-cream hover:bg-white/5"
@@ -452,7 +462,7 @@ export default function HowItWorksStepper() {
                     <button
                       onClick={() => setActiveStep(2)}
                       aria-label="Export step"
-                      className={`p-2.5 rounded-full transition-all duration-300 ${
+                      className={`w-11 h-11 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-full transition-all duration-300 ${
                         activeStep === 2
                           ? "bg-cream text-charcoal shadow-md scale-105"
                           : "text-cream/60 hover:text-cream hover:bg-white/5"

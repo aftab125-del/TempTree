@@ -359,21 +359,22 @@ export default function ImageCropperModal({
 
           <button
             onClick={onCancel}
-            className="p-1.5 rounded-full hover:bg-white/10 text-[#FAF7F2]/70 hover:text-[#FAF7F2] transition-colors"
+            className="w-11 h-11 min-w-[44px] min-h-[44px] rounded-full hover:bg-white/10 text-[#FAF7F2]/70 hover:text-[#FAF7F2] transition-colors flex items-center justify-center cursor-pointer"
             title="Cancel"
+            aria-label="Cancel and close dialog"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Framing Mode Toggle Bar */}
-        <div className="px-5 py-2.5 bg-black/30 border-b border-white/5 flex items-center justify-between text-xs">
+        <div className="px-5 py-2.5 bg-black/30 border-b border-white/5 flex flex-wrap items-center justify-between gap-2 text-xs">
           <span className="text-[11px] text-[#FAF7F2]/60 font-light">Framing Option:</span>
           <div className="flex items-center bg-white/[0.06] rounded-xl p-0.5 border border-white/10">
             <button
               type="button"
               onClick={() => handleSwitchMode("fill")}
-              className={`flex items-center gap-1.5 px-3 py-1 rounded-lg font-medium transition-all ${
+              className={`flex items-center gap-1.5 px-3 py-2 min-h-[44px] rounded-lg font-medium transition-all ${
                 cropMode === "fill"
                   ? "bg-[#E2B4BD]/30 text-[#F7D6D0] shadow-sm font-semibold"
                   : "text-[#FAF7F2]/70 hover:text-[#FAF7F2]"
@@ -385,7 +386,7 @@ export default function ImageCropperModal({
             <button
               type="button"
               onClick={() => handleSwitchMode("fit")}
-              className={`flex items-center gap-1.5 px-3 py-1 rounded-lg font-medium transition-all ${
+              className={`flex items-center gap-1.5 px-3 py-2 min-h-[44px] rounded-lg font-medium transition-all ${
                 cropMode === "fit"
                   ? "bg-[#E2B4BD]/30 text-[#F7D6D0] shadow-sm font-semibold"
                   : "text-[#FAF7F2]/70 hover:text-[#FAF7F2]"
@@ -476,12 +477,13 @@ export default function ImageCropperModal({
         {/* Interactive Controls Toolbar */}
         <div className="px-5 py-3 border-t border-white/10 bg-white/[0.02] flex flex-col gap-3">
           {/* Zoom Slider */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
             <button
               type="button"
               onClick={() => setZoom((prev) => Math.max(0.3, +(prev - 0.1).toFixed(2)))}
-              className="p-1.5 rounded-lg bg-black/40 hover:bg-black/60 text-[#FAF7F2]/80 hover:text-[#FAF7F2] border border-white/10 transition-all"
+              className="w-11 h-11 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl bg-black/40 hover:bg-black/60 text-[#FAF7F2]/80 hover:text-[#FAF7F2] border border-white/10 transition-all active:scale-95"
               title="Zoom out"
+              aria-label="Zoom out"
             >
               <ZoomOut className="w-4 h-4" />
             </button>
@@ -494,7 +496,7 @@ export default function ImageCropperModal({
                 step="0.02"
                 value={zoom}
                 onChange={(e) => setZoom(parseFloat(e.target.value))}
-                className="w-full accent-[#E2B4BD] h-1.5 bg-black/40 rounded-lg cursor-pointer"
+                className="w-full accent-[#E2B4BD] h-2 bg-black/40 rounded-lg cursor-pointer"
               />
               <span className="text-[11px] font-mono text-[#F7D6D0] w-12 text-right">
                 {Math.round(zoom * 100)}%
@@ -504,8 +506,9 @@ export default function ImageCropperModal({
             <button
               type="button"
               onClick={() => setZoom((prev) => Math.min(3, +(prev + 0.1).toFixed(2)))}
-              className="p-1.5 rounded-lg bg-black/40 hover:bg-black/60 text-[#FAF7F2]/80 hover:text-[#FAF7F2] border border-white/10 transition-all"
+              className="w-11 h-11 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl bg-black/40 hover:bg-black/60 text-[#FAF7F2]/80 hover:text-[#FAF7F2] border border-white/10 transition-all active:scale-95"
               title="Zoom in"
+              aria-label="Zoom in"
             >
               <ZoomIn className="w-4 h-4" />
             </button>
@@ -516,7 +519,7 @@ export default function ImageCropperModal({
                 setZoom(1);
                 setOffset({ x: 0, y: 0 });
               }}
-              className="p-1.5 rounded-lg bg-black/40 hover:bg-black/60 text-[#FAF7F2]/80 hover:text-[#FAF7F2] border border-white/10 transition-all flex items-center gap-1 text-[11px] px-2.5"
+              className="min-h-[44px] px-3.5 rounded-xl bg-black/40 hover:bg-black/60 text-[#FAF7F2]/80 hover:text-[#FAF7F2] border border-white/10 transition-all flex items-center justify-center gap-1.5 text-xs active:scale-95"
               title="Reset Position"
             >
               <RotateCcw className="w-3.5 h-3.5" />
@@ -526,11 +529,11 @@ export default function ImageCropperModal({
         </div>
 
         {/* Footer Actions */}
-        <div className="px-5 py-4 border-t border-white/10 flex items-center justify-between bg-white/[0.02]">
+        <div className="px-5 py-4 border-t border-white/10 flex items-center justify-between gap-3 bg-white/[0.02]">
           <button
             type="button"
             onClick={onCancel}
-            className="px-4 py-2 rounded-full border border-white/20 text-[#FAF7F2]/80 hover:text-[#FAF7F2] text-xs font-medium hover:bg-white/10 transition-all"
+            className="min-h-[44px] px-5 py-2.5 rounded-full border border-white/20 text-[#FAF7F2]/80 hover:text-[#FAF7F2] text-xs font-medium hover:bg-white/10 transition-all active:scale-95"
           >
             Cancel
           </button>
@@ -539,7 +542,7 @@ export default function ImageCropperModal({
             type="button"
             onClick={handleApplyCrop}
             disabled={isApplying || !isReadyToApply}
-            className="inline-flex items-center gap-2 px-6 py-2.5 rounded-full bg-gradient-to-r from-[#E2B4BD] to-[#F7D6D0] hover:brightness-105 text-[#181116] font-semibold text-xs sm:text-sm shadow-md hover:shadow-lg transition-all transform active:scale-95 disabled:opacity-50 cursor-pointer"
+            className="inline-flex items-center justify-center gap-2 min-h-[44px] px-6 py-2.5 rounded-full bg-gradient-to-r from-[#E2B4BD] to-[#F7D6D0] hover:brightness-105 text-[#181116] font-semibold text-xs sm:text-sm shadow-md hover:shadow-lg transition-all transform active:scale-95 disabled:opacity-50 cursor-pointer"
           >
             {isApplying ? (
               <Sparkles className="w-4 h-4 animate-spin text-[#181116]" />

@@ -10,6 +10,7 @@ import ImageCropperModal from "@/components/ImageCropperModal";
 import { loadFabric } from "@/lib/fabric";
 import { getTemplate, saveTemplate } from "@/lib/template-store";
 import MobileAtmosphericBackground from "@/components/ui/MobileAtmosphericBackground";
+import MobileExportModal from "@/components/MobileExportModal";
 import {
   ArrowLeft,
   Download,
@@ -135,6 +136,17 @@ export default function EditorPage() {
   // Mobile Bottom Dock: Secondary tools drawer state
   const [showMobileTools, setShowMobileTools] = useState<boolean>(false);
   const isDesktopRef = useRef<boolean | null>(null);
+
+  // Mobile Export Modal State
+  const [mobileExportModal, setMobileExportModal] = useState<{
+    isOpen: boolean;
+    imageUrl: string;
+    filename: string;
+  }>({
+    isOpen: false,
+    imageUrl: "",
+    filename: "",
+  });
 
   // Track active photo state before slot adjustment begins to guarantee photo preservation
   const adjustingSlotPhotoRef = useRef<{
@@ -615,14 +627,25 @@ export default function EditorPage() {
           multiplier: exportMultiplier,
         });
 
-        // Trigger browser download
-        const link = document.createElement("a");
         const filename = `temptree-${template.category.toLowerCase()}-${template.id}-${Date.now()}.png`;
-        link.download = filename;
-        link.href = dataUrl;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+        const isMobileViewport = typeof window !== "undefined" && window.innerWidth < 768;
+
+        if (isMobileViewport) {
+          // On mobile: present the mobile-optimized export modal with Web Share and preview
+          setMobileExportModal({
+            isOpen: true,
+            imageUrl: dataUrl,
+            filename,
+          });
+        } else {
+          // On desktop: trigger direct browser file download (100% untouched desktop behavior)
+          const link = document.createElement("a");
+          link.download = filename;
+          link.href = dataUrl;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+        }
 
         setExportSuccess(true);
         setTimeout(() => setExportSuccess(false), 4000);
@@ -1083,7 +1106,7 @@ export default function EditorPage() {
         <div className="flex items-center space-x-2 sm:space-x-3 min-w-0">
           <Link
             href="/gallery"
-            className="p-2 rounded-full hover:bg-mauve/30 text-cream transition-colors flex items-center gap-1.5 text-xs font-semibold flex-shrink-0"
+            className="p-2 min-w-[44px] min-h-[44px] rounded-full hover:bg-mauve/30 text-cream transition-colors flex items-center justify-center gap-1.5 text-xs font-semibold flex-shrink-0"
             title="Upload another template"
           >
             <ArrowLeft className="w-4 h-4" />
@@ -1107,7 +1130,7 @@ export default function EditorPage() {
           {/* Upload Custom Photo Button */}
           <button
             onClick={triggerImageUpload}
-            className="inline-flex items-center gap-1.5 p-2 sm:px-4 sm:py-2.5 rounded-full bg-mauve/25 hover:bg-mauve/45 border border-dustyPink/30 text-cream font-medium text-xs sm:text-sm transition-all shadow-sm"
+            className="inline-flex items-center justify-center gap-1.5 p-2 min-w-[44px] min-h-[44px] sm:px-4 sm:py-2.5 rounded-full bg-mauve/25 hover:bg-mauve/45 border border-dustyPink/30 text-cream font-medium text-xs sm:text-sm transition-all shadow-sm"
             title="Upload or replace photo"
           >
             <Upload className="w-4 h-4 text-dustyPink" />
@@ -1139,7 +1162,7 @@ export default function EditorPage() {
           <button
             onClick={handleExportPNG}
             disabled={isExporting}
-            className="inline-flex items-center gap-1.5 sm:gap-2 px-3 sm:px-5 py-2 sm:py-2.5 rounded-full bg-cream text-plum font-semibold text-xs sm:text-sm hover:bg-dustyPink transition-all shadow-lg hover:shadow-xl transform active:scale-95 disabled:opacity-50 cursor-pointer"
+            className="inline-flex items-center justify-center min-h-[44px] gap-1.5 sm:gap-2 px-3 sm:px-5 py-2 sm:py-2.5 rounded-full bg-cream text-plum font-semibold text-xs sm:text-sm hover:bg-dustyPink transition-all shadow-lg hover:shadow-xl transform active:scale-95 disabled:opacity-50 cursor-pointer"
           >
             {isExporting ? (
               <Sparkles className="w-3.5 h-3.5 sm:w-4 sm:h-4 animate-spin text-mauve" />
@@ -1623,9 +1646,10 @@ export default function EditorPage() {
               <button
                 type="button"
                 onClick={() => setShowMobileTools(false)}
-                className="p-1 rounded-full text-cream/70 hover:text-cream hover:bg-mauve/30"
+                className="w-11 h-11 min-w-[44px] min-h-[44px] rounded-full text-cream/70 hover:text-cream hover:bg-mauve/30 flex items-center justify-center cursor-pointer"
+                aria-label="Close photo adjustments drawer"
               >
-                <X className="w-3.5 h-3.5" />
+                <X className="w-4 h-4" />
               </button>
             </div>
 
@@ -1644,7 +1668,7 @@ export default function EditorPage() {
                 step="0.05"
                 value={currentOpacity}
                 onChange={(e) => updateActiveSlotProp("opacity", parseFloat(e.target.value))}
-                className="w-full accent-mauve cursor-pointer h-1.5"
+                className="w-full accent-mauve cursor-pointer h-2"
               />
             </div>
 
@@ -1653,13 +1677,13 @@ export default function EditorPage() {
               <button
                 type="button"
                 onClick={handleToggleFlipX}
-                className={`flex-1 py-2 px-2.5 rounded-lg border text-xs font-medium flex items-center justify-center gap-1.5 transition-all ${
+                className={`flex-1 min-h-[44px] py-2 px-2.5 rounded-xl border text-xs font-medium flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
                   isFlippedX
                     ? "bg-mauve text-cream border-cream shadow-sm"
                     : "bg-plum/60 text-cream/80 border-dustyPink/20 hover:border-dustyPink/40 hover:text-cream"
                 }`}
               >
-                <FlipHorizontal className="w-3.5 h-3.5" />
+                <FlipHorizontal className="w-4 h-4" />
                 <span>{isFlippedX ? "Mirrored" : "Flip Horizontal"}</span>
               </button>
 
@@ -1669,10 +1693,10 @@ export default function EditorPage() {
                   handleResetSlotPhoto(activeSlot);
                   setShowMobileTools(false);
                 }}
-                className="py-2 px-3 rounded-lg bg-plum/60 hover:bg-red-950/40 border border-dustyPink/20 hover:border-red-400/40 text-cream/70 hover:text-red-300 text-xs font-medium flex items-center justify-center gap-1.5 transition-all"
+                className="min-h-[44px] py-2 px-3.5 rounded-xl bg-plum/60 hover:bg-red-950/40 border border-dustyPink/20 hover:border-red-400/40 text-cream/70 hover:text-red-300 text-xs font-medium flex items-center justify-center gap-1.5 transition-all cursor-pointer"
                 title="Reset to default template photo"
               >
-                <RotateCcw className="w-3.5 h-3.5" />
+                <RotateCcw className="w-4 h-4" />
                 <span>Reset Photo</span>
               </button>
             </div>
@@ -1703,20 +1727,20 @@ export default function EditorPage() {
                 <button
                   type="button"
                   onClick={() => handleNudgeSlot("rotation", -1)}
-                  className="px-2 py-1 rounded bg-mauve/30 hover:bg-mauve/50 border border-dustyPink/30 text-cream font-mono text-[11px] active:scale-95"
+                  className="min-w-[36px] min-h-[38px] px-2.5 py-1 rounded-lg bg-mauve/30 hover:bg-mauve/50 border border-dustyPink/30 text-cream font-mono text-[11px] active:scale-95 flex items-center justify-center cursor-pointer"
                 >
                   -1°
                 </button>
                 <button
                   type="button"
                   onClick={() => handleNudgeSlot("rotation", 1)}
-                  className="px-2 py-1 rounded bg-mauve/30 hover:bg-mauve/50 border border-dustyPink/30 text-cream font-mono text-[11px] active:scale-95"
+                  className="min-w-[36px] min-h-[38px] px-2.5 py-1 rounded-lg bg-mauve/30 hover:bg-mauve/50 border border-dustyPink/30 text-cream font-mono text-[11px] active:scale-95 flex items-center justify-center cursor-pointer"
                 >
                   +1°
                 </button>
               </div>
 
-              <div className="h-4 w-px bg-dustyPink/20" />
+              <div className="h-5 w-px bg-dustyPink/20" />
 
               {/* Position Nudges */}
               <div className="flex items-center gap-1">
@@ -1724,38 +1748,42 @@ export default function EditorPage() {
                 <button
                   type="button"
                   onClick={() => handleNudgeSlot("cx", -3)}
-                  className="px-2 py-1 rounded bg-mauve/30 hover:bg-mauve/50 border border-dustyPink/30 text-cream font-mono text-xs active:scale-95"
+                  className="min-w-[36px] min-h-[38px] px-2 py-1 rounded-lg bg-mauve/30 hover:bg-mauve/50 border border-dustyPink/30 text-cream font-mono text-xs active:scale-95 flex items-center justify-center cursor-pointer"
                   title="Move Left"
+                  aria-label="Move slot left"
                 >
                   &larr;
                 </button>
                 <button
                   type="button"
                   onClick={() => handleNudgeSlot("cx", 3)}
-                  className="px-2 py-1 rounded bg-mauve/30 hover:bg-mauve/50 border border-dustyPink/30 text-cream font-mono text-xs active:scale-95"
+                  className="min-w-[36px] min-h-[38px] px-2 py-1 rounded-lg bg-mauve/30 hover:bg-mauve/50 border border-dustyPink/30 text-cream font-mono text-xs active:scale-95 flex items-center justify-center cursor-pointer"
                   title="Move Right"
+                  aria-label="Move slot right"
                 >
                   &rarr;
                 </button>
                 <button
                   type="button"
                   onClick={() => handleNudgeSlot("cy", -3)}
-                  className="px-2 py-1 rounded bg-mauve/30 hover:bg-mauve/50 border border-dustyPink/30 text-cream font-mono text-xs active:scale-95"
+                  className="min-w-[36px] min-h-[38px] px-2 py-1 rounded-lg bg-mauve/30 hover:bg-mauve/50 border border-dustyPink/30 text-cream font-mono text-xs active:scale-95 flex items-center justify-center cursor-pointer"
                   title="Move Up"
+                  aria-label="Move slot up"
                 >
                   &uarr;
                 </button>
                 <button
                   type="button"
                   onClick={() => handleNudgeSlot("cy", 3)}
-                  className="px-2 py-1 rounded bg-mauve/30 hover:bg-mauve/50 border border-dustyPink/30 text-cream font-mono text-xs active:scale-95"
+                  className="min-w-[36px] min-h-[38px] px-2 py-1 rounded-lg bg-mauve/30 hover:bg-mauve/50 border border-dustyPink/30 text-cream font-mono text-xs active:scale-95 flex items-center justify-center cursor-pointer"
                   title="Move Down"
+                  aria-label="Move slot down"
                 >
                   &darr;
                 </button>
               </div>
 
-              <div className="h-4 w-px bg-dustyPink/20" />
+              <div className="h-5 w-px bg-dustyPink/20" />
 
               {/* Size Nudges */}
               <div className="flex items-center gap-1">
@@ -1766,8 +1794,9 @@ export default function EditorPage() {
                     handleNudgeSlot("width", -4);
                     handleNudgeSlot("height", -4);
                   }}
-                  className="px-2 py-1 rounded bg-mauve/30 hover:bg-mauve/50 border border-dustyPink/30 text-cream font-mono text-xs active:scale-95"
+                  className="min-w-[36px] min-h-[38px] px-2.5 py-1 rounded-lg bg-mauve/30 hover:bg-mauve/50 border border-dustyPink/30 text-cream font-mono text-xs active:scale-95 flex items-center justify-center cursor-pointer"
                   title="Shrink"
+                  aria-label="Shrink slot"
                 >
                   -
                 </button>
@@ -1777,8 +1806,9 @@ export default function EditorPage() {
                     handleNudgeSlot("width", 4);
                     handleNudgeSlot("height", 4);
                   }}
-                  className="px-2 py-1 rounded bg-mauve/30 hover:bg-mauve/50 border border-dustyPink/30 text-cream font-mono text-xs active:scale-95"
+                  className="min-w-[36px] min-h-[38px] px-2.5 py-1 rounded-lg bg-mauve/30 hover:bg-mauve/50 border border-dustyPink/30 text-cream font-mono text-xs active:scale-95 flex items-center justify-center cursor-pointer"
                   title="Expand"
+                  aria-label="Expand slot"
                 >
                   +
                 </button>
@@ -1790,7 +1820,7 @@ export default function EditorPage() {
               <button
                 type="button"
                 onClick={stopAdjustSlotMode}
-                className="flex-1 py-2.5 px-3 rounded-xl bg-peachPink text-plum font-bold text-xs flex items-center justify-center gap-1.5 transition-all shadow-md active:scale-95 cursor-pointer"
+                className="flex-1 min-h-[44px] py-2.5 px-3 rounded-xl bg-peachPink text-plum font-bold text-xs flex items-center justify-center gap-1.5 transition-all shadow-md active:scale-95 cursor-pointer"
               >
                 <Check className="w-4 h-4" />
                 <span>Done Adjusting Slot</span>
@@ -1799,7 +1829,7 @@ export default function EditorPage() {
               <button
                 type="button"
                 onClick={() => activeSlot && handleResetSlotGeometry(activeSlot)}
-                className="py-2.5 px-3 rounded-xl bg-plum/60 hover:bg-plum/90 border border-dustyPink/30 text-cream/80 text-xs flex items-center justify-center gap-1 transition-all active:scale-95"
+                className="min-h-[44px] px-3.5 rounded-xl bg-plum/60 hover:bg-plum/90 border border-dustyPink/30 text-cream/80 text-xs flex items-center justify-center gap-1 transition-all active:scale-95 cursor-pointer"
                 title="Reset geometry"
               >
                 <RotateCcw className="w-3.5 h-3.5" />
@@ -1821,13 +1851,13 @@ export default function EditorPage() {
                       key={slot.id}
                       type="button"
                       onClick={() => handleSelectSlot(slot)}
-                      className={`flex-shrink-0 flex items-center gap-2 px-2 py-1 rounded-xl border transition-all text-left ${
+                      className={`flex-shrink-0 flex items-center gap-2 px-2.5 py-1.5 min-h-[44px] rounded-xl border transition-all text-left cursor-pointer ${
                         isSelected
                           ? "bg-mauve/35 border-peachPink ring-1 ring-peachPink/50 text-cream shadow-sm"
                           : "bg-plum/50 border-dustyPink/20 text-cream/70 hover:text-cream"
                       }`}
                     >
-                      <div className="relative w-7 h-7 rounded-lg overflow-hidden border border-cream/20 bg-charcoal flex-shrink-0">
+                      <div className="relative w-8 h-8 rounded-lg overflow-hidden border border-cream/20 bg-charcoal flex-shrink-0">
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
                           src={previewImg}
@@ -1852,15 +1882,15 @@ export default function EditorPage() {
                   <button
                     type="button"
                     onClick={() => setShowMobileTools((prev) => !prev)}
-                    className={`flex-shrink-0 flex items-center gap-1 px-2.5 py-1.5 rounded-xl border text-xs font-medium transition-all ml-auto ${
+                    className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 min-h-[44px] rounded-xl border text-xs font-medium transition-all ml-auto cursor-pointer ${
                       showMobileTools
                         ? "bg-peachPink text-plum border-peachPink"
                         : "bg-plum/50 border-dustyPink/20 text-cream/80 hover:text-cream"
                     }`}
                     title="Photo tools"
                   >
-                    <Sliders className="w-3.5 h-3.5" />
-                    <span className="text-[11px]">Tools</span>
+                    <Sliders className="w-4 h-4" />
+                    <span className="text-xs">Tools</span>
                   </button>
                 )}
               </div>
@@ -1872,9 +1902,9 @@ export default function EditorPage() {
               <button
                 type="button"
                 onClick={() => activeSlot ? handlePickPhotoForSlot(activeSlot) : triggerImageUpload()}
-                className="flex-1 py-2.5 px-3 rounded-xl bg-cream hover:bg-dustyPink text-plum font-bold text-xs transition-all shadow-md active:scale-95 flex items-center justify-center gap-1.5 cursor-pointer"
+                className="flex-1 min-h-[44px] py-2.5 px-3 rounded-xl bg-cream hover:bg-dustyPink text-plum font-bold text-xs transition-all shadow-md active:scale-95 flex items-center justify-center gap-1.5 cursor-pointer"
               >
-                <Upload className="w-3.5 h-3.5 text-plum" />
+                <Upload className="w-4 h-4 text-plum" />
                 <span>Replace</span>
               </button>
 
@@ -1883,9 +1913,9 @@ export default function EditorPage() {
                 type="button"
                 onClick={() => activeSlot && handleAdjustCropForSlot(activeSlot)}
                 disabled={!activeSlot}
-                className="flex-1 py-2.5 px-3 rounded-xl bg-mauve/30 hover:bg-mauve/50 border border-dustyPink/30 text-cream font-medium text-xs transition-all active:scale-95 flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                className="flex-1 min-h-[44px] py-2.5 px-3 rounded-xl bg-mauve/30 hover:bg-mauve/50 border border-dustyPink/30 text-cream font-medium text-xs transition-all active:scale-95 flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
               >
-                <Crop className="w-3.5 h-3.5 text-peachPink" />
+                <Crop className="w-4 h-4 text-peachPink" />
                 <span>Crop</span>
               </button>
 
@@ -1894,9 +1924,9 @@ export default function EditorPage() {
                 type="button"
                 onClick={() => activeSlot && startAdjustSlotMode(activeSlot)}
                 disabled={!activeSlot}
-                className="flex-1 py-2.5 px-3 rounded-xl bg-mauve/30 hover:bg-mauve/50 border border-dustyPink/30 text-cream font-medium text-xs transition-all active:scale-95 flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                className="flex-1 min-h-[44px] py-2.5 px-3 rounded-xl bg-mauve/30 hover:bg-mauve/50 border border-dustyPink/30 text-cream font-medium text-xs transition-all active:scale-95 flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
               >
-                <Move className="w-3.5 h-3.5 text-peachPink" />
+                <Move className="w-4 h-4 text-peachPink" />
                 <span>Adjust Slot</span>
               </button>
             </div>
@@ -1923,6 +1953,14 @@ export default function EditorPage() {
           setCropperModal({ isOpen: false, imageSrc: "", targetSlot: null });
           pendingSlotRef.current = null;
         }}
+      />
+
+      {/* Mobile-Optimized Story Export Dialog */}
+      <MobileExportModal
+        isOpen={mobileExportModal.isOpen}
+        imageUrl={mobileExportModal.imageUrl}
+        filename={mobileExportModal.filename}
+        onClose={() => setMobileExportModal({ isOpen: false, imageUrl: "", filename: "" })}
       />
     </div>
   );
