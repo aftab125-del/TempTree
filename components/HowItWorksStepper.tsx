@@ -359,15 +359,18 @@ export default function HowItWorksStepper() {
                 </div>
 
                 {/* 2x3 Grid of Rounded Visual Tiles (Animated on step change) */}
-                <div className="grid grid-cols-3 gap-3 sm:gap-4 mb-6">
-                  <AnimatePresence mode="wait">
-                    {currentTiles.map((tile, i) => (
-                      <motion.div
+                <AnimatePresence mode="wait">
+                  <motion.div
+                    key={stepKey}
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -8 }}
+                    transition={{ duration: 0.25 }}
+                    className="grid grid-cols-3 gap-3 sm:gap-4 mb-6"
+                  >
+                    {currentTiles.map((tile) => (
+                      <div
                         key={`${stepKey}-${tile.id}`}
-                        initial={{ opacity: 0, scale: 0.85, y: 10 }}
-                        animate={{ opacity: 1, scale: 1, y: 0 }}
-                        exit={{ opacity: 0, scale: 0.9, y: -10 }}
-                        transition={{ duration: 0.3, delay: i * 0.05 }}
                         className={`relative aspect-[3/4] rounded-2xl overflow-hidden flex flex-col justify-between p-2.5 shadow-md group ${
                           tile.bg
                         } ${tile.border || "border border-white/10"}`}
@@ -402,10 +405,10 @@ export default function HowItWorksStepper() {
                             </p>
                           )}
                         </div>
-                      </motion.div>
+                      </div>
                     ))}
-                  </AnimatePresence>
-                </div>
+                  </motion.div>
+                </AnimatePresence>
 
                 {/* Bottom Floating Pill Dock (Matching the 4 icons in reference photo) */}
                 <div className="flex items-center justify-center">

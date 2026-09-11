@@ -4,8 +4,8 @@ import React from "react";
 
 interface MobileAtmosphericBackgroundProps {
   /**
-   * "ambient" — Richer palette glow with subtle botanical line motifs for homepage & gallery
-   * "zen" — Minimal, deep matte charcoal with ultra-faint texture for the editor workspace
+   * "ambient" -- Richer palette glow with subtle botanical line motifs for homepage and gallery
+   * "zen" -- Minimal, deep matte charcoal with ultra-faint texture for the editor workspace
    */
   variant?: "ambient" | "zen";
   className?: string;
@@ -28,6 +28,7 @@ export default function MobileAtmosphericBackground({
   children,
 }: MobileAtmosphericBackgroundProps) {
   const isZen = variant === "zen";
+  const patternId = isZen ? "botanical-pattern-zen" : "botanical-pattern-ambient";
 
   return (
     <div
@@ -65,7 +66,7 @@ export default function MobileAtmosphericBackground({
         <defs>
           {/* Seamless 120x120 Botanical Petal & Branch Vector Tile */}
           <pattern
-            id={`botanical-pattern-${variant}`}
+            id={patternId}
             width="120"
             height="120"
             patternUnits="userSpaceOnUse"
@@ -76,7 +77,7 @@ export default function MobileAtmosphericBackground({
               <circle cx="0" cy="0" r="2.5" fill="#F7D6D0" />
               {/* Petal 1 */}
               <path
-                d="M 0,-3 C -5,-14 -12,-24 0,-32 C 12,-24 5,-14 0,-3 Z"
+                d="M 0 -3 C -5 -14 -12 -24 0 -32 C 12 -24 5 -14 0 -3 Z"
                 fill="none"
                 stroke="#E2B4BD"
                 strokeWidth="1.2"
@@ -84,7 +85,7 @@ export default function MobileAtmosphericBackground({
               />
               {/* Petal 2 */}
               <path
-                d="M 0,-3 C -5,-14 -12,-24 0,-32 C 12,-24 5,-14 0,-3 Z"
+                d="M 0 -3 C -5 -14 -12 -24 0 -32 C 12 -24 5 -14 0 -3 Z"
                 transform="rotate(72)"
                 fill="none"
                 stroke="#E2B4BD"
@@ -93,7 +94,7 @@ export default function MobileAtmosphericBackground({
               />
               {/* Petal 3 */}
               <path
-                d="M 0,-3 C -5,-14 -12,-24 0,-32 C 12,-24 5,-14 0,-3 Z"
+                d="M 0 -3 C -5 -14 -12 -24 0 -32 C 12 -24 5 -14 0 -3 Z"
                 transform="rotate(144)"
                 fill="none"
                 stroke="#E2B4BD"
@@ -102,7 +103,7 @@ export default function MobileAtmosphericBackground({
               />
               {/* Petal 4 */}
               <path
-                d="M 0,-3 C -5,-14 -12,-24 0,-32 C 12,-24 5,-14 0,-3 Z"
+                d="M 0 -3 C -5 -14 -12 -24 0 -32 C 12 -24 5 -14 0 -3 Z"
                 transform="rotate(216)"
                 fill="none"
                 stroke="#E2B4BD"
@@ -111,7 +112,7 @@ export default function MobileAtmosphericBackground({
               />
               {/* Petal 5 */}
               <path
-                d="M 0,-3 C -5,-14 -12,-24 0,-32 C 12,-24 5,-14 0,-3 Z"
+                d="M 0 -3 C -5 -14 -12 -24 0 -32 C 12 -24 5 -14 0 -3 Z"
                 transform="rotate(288)"
                 fill="none"
                 stroke="#E2B4BD"
@@ -122,13 +123,13 @@ export default function MobileAtmosphericBackground({
 
             {/* Drifting Petals Accent */}
             <path
-              d="M 15,20 C 12,28 10,34 18,38 C 22,32 20,24 15,20 Z"
+              d="M 15 20 C 12 28 10 34 18 38 C 22 32 20 24 15 20 Z"
               fill="none"
               stroke="#F7D6D0"
               strokeWidth="0.9"
             />
             <path
-              d="M 105,95 C 101,102 98,107 106,112 C 111,107 109,99 105,95 Z"
+              d="M 105 95 C 101 102 98 107 106 112 C 111 107 109 99 105 95 Z"
               fill="none"
               stroke="#F7D6D0"
               strokeWidth="0.9"
@@ -136,14 +137,14 @@ export default function MobileAtmosphericBackground({
 
             {/* Faint Organic Branch Curve */}
             <path
-              d="M 0,110 Q 30,95 50,120"
+              d="M 0 110 Q 30 95 50 120"
               fill="none"
               stroke="#E2B4BD"
               strokeWidth="0.7"
               strokeDasharray="2 3"
             />
             <path
-              d="M 70,0 Q 95,20 120,5"
+              d="M 70 0 Q 95 20 120 5"
               fill="none"
               stroke="#E2B4BD"
               strokeWidth="0.7"
@@ -152,7 +153,7 @@ export default function MobileAtmosphericBackground({
           </pattern>
         </defs>
 
-        <rect width="100%" height="100%" fill={`url(#botanical-pattern-${variant})`} />
+        <rect width="100%" height="100%" fill={"url(#" + patternId + ")"} />
       </svg>
 
       {/* Layer 3: Micro Noise Stipple Gradient (Pure CSS) */}

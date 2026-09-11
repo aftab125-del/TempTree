@@ -142,13 +142,20 @@ export default function SakuraScrollHero() {
 
     imagesRef.current = images;
 
+    // Watchdog safety fallback: ensure preloader dismisses even on poor mobile connectivity
+    const safetyTimer = setTimeout(() => {
+      if (isMounted) {
+        setIsLoaded(true);
+      }
+    }, 2000);
+
     // Load Frame 1 with high priority
     const firstImg = new Image();
-    firstImg.src = "/sakura-frames/ezgif-frame-001.webp";
     images[0] = firstImg;
 
     const onFirstFrameReady = () => {
       if (!isMounted) return;
+      clearTimeout(safetyTimer);
       loadedCount++;
       setLoadProgress(Math.floor((loadedCount / TOTAL_FRAMES) * 100));
 
@@ -163,6 +170,11 @@ export default function SakuraScrollHero() {
 
     firstImg.onload = onFirstFrameReady;
     firstImg.onerror = onFirstFrameReady; // Fallback so page never hangs
+    firstImg.src = "/sakura-frames/ezgif-frame-001.webp";
+
+    if (firstImg.complete) {
+      onFirstFrameReady();
+    }
 
     // Background progressive loader for frames 2..300
     const loadRemainingFrames = () => {
@@ -170,7 +182,6 @@ export default function SakuraScrollHero() {
         const index = i - 1;
         const padIndex = String(i).padStart(3, "0");
         const img = new Image();
-        img.src = `/sakura-frames/ezgif-frame-${padIndex}.webp`;
 
         const onFrameLoaded = () => {
           if (!isMounted) return;
@@ -180,12 +191,18 @@ export default function SakuraScrollHero() {
 
         img.onload = onFrameLoaded;
         img.onerror = onFrameLoaded;
+        img.src = `/sakura-frames/ezgif-frame-${padIndex}.webp`;
         images[index] = img;
+
+        if (img.complete) {
+          onFrameLoaded();
+        }
       }
     };
 
     return () => {
       isMounted = false;
+      clearTimeout(safetyTimer);
     };
   }, []);
 

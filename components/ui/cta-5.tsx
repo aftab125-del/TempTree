@@ -146,8 +146,8 @@ export const CTA5: React.FC<CTA5Props> = ({
               {[...Array(10)].map((_, i) => {
                 const orbitAngle = (i * 36) * (Math.PI / 180);
                 const radius = 130;
-                const x = Math.cos(orbitAngle) * radius;
-                const y = Math.sin(orbitAngle) * radius;
+                const x = Math.round(Math.cos(orbitAngle) * radius * 100) / 100;
+                const y = Math.round(Math.sin(orbitAngle) * radius * 100) / 100;
                 return (
                   <motion.div
                     key={`mini-petal-${i}`}
