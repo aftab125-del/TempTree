@@ -21,6 +21,7 @@ export interface ImageCropperModalProps {
   targetWidth?: number;
   targetHeight?: number;
   slotLabel?: string;
+  cornerRadius?: number;
   onConfirm: (croppedDataUrl: string) => void;
   onCancel: () => void;
 }
@@ -32,6 +33,7 @@ export default function ImageCropperModal({
   targetWidth = 600,
   targetHeight = 600,
   slotLabel = "Photo Slot",
+  cornerRadius = 0,
   onConfirm,
   onCancel,
 }: ImageCropperModalProps) {
@@ -419,6 +421,7 @@ export default function ImageCropperModal({
               maxHeight: "360px",
               width: aspectRatio >= 1 ? "100%" : "auto",
               height: aspectRatio < 1 ? "320px" : "auto",
+              borderRadius: cornerRadius > 0 ? `${cornerRadius}px` : undefined,
             }}
             className={`relative rounded-2xl overflow-hidden border-2 border-[#E2B4BD]/80 shadow-2xl cursor-grab active:cursor-grabbing touch-none bg-[#120d11] ${
               isDragging ? "ring-4 ring-[#E2B4BD]/30" : ""

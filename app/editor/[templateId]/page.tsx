@@ -31,6 +31,12 @@ import {
   FlipHorizontal,
   X,
   Loader2,
+  Undo2,
+  Redo2,
+  Lock,
+  Unlock,
+  Maximize,
+  HelpCircle,
 } from "lucide-react";
 
 interface PhotoSlot {
@@ -45,6 +51,7 @@ interface PhotoSlot {
   rotation?: number;
   cx?: number;
   cy?: number;
+  cornerRadius?: number;
   currentSrc: string;
 }
 
@@ -78,6 +85,7 @@ export default function EditorPage() {
         const rot = imgEl.rotation ?? imgEl.angle ?? 0;
         const cx = imgEl.cx != null ? imgEl.cx : (imgEl.left || 0) + w / 2;
         const cy = imgEl.cy != null ? imgEl.cy : (imgEl.top || 0) + h / 2;
+        const cornerRadius = imgEl.cornerRadius ?? imgEl.rx ?? 0;
         return {
           id: imgEl.id,
           index: idx + 1,
@@ -90,6 +98,7 @@ export default function EditorPage() {
           rotation: rot,
           cx,
           cy,
+          cornerRadius,
           currentSrc: imgEl.src,
         };
       });
@@ -127,8 +136,23 @@ export default function EditorPage() {
     cx: number;
     cy: number;
     rotation: number;
+    cornerRadius?: number;
   } | null>(null);
   const adjusterRectRef = useRef<any>(null);
+
+  // Smart snapping guidelines state
+  const [snapGuides, setSnapGuides] = useState<{ x?: number; y?: number } | null>(null);
+
+  // Aspect ratio lock and preset state
+  const [aspectRatioLocked, setAspectRatioLocked] = useState<boolean>(false);
+  const [activeAspectPreset, setActiveAspectPreset] = useState<string>("free");
+
+  // Corner radius state
+  const [activeCornerRadius, setActiveCornerRadius] = useState<number>(0);
+
+  // History Stack for Undo / Redo
+  const [undoStack, setUndoStack] = useState<LayoutJson[]>([]);
+  const [redoStack, setRedoStack] = useState<LayoutJson[]>([]);
 
   // Hidden file input ref for image uploads
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -154,6 +178,19 @@ export default function EditorPage() {
     src: string;
     hasUserPhoto: boolean;
   } | null>(null);
+
+  // Keyboard shortcuts modal state
+  const [showShortcutsModal, setShowShortcutsModal] = useState<boolean>(false);
+
+  // Sync active corner radius whenever selected slot changes
+  useEffect(() => {
+    if (selectedSlotId) {
+      const current = photoSlots.find((s) => s.id === selectedSlotId);
+      if (current) {
+        setActiveCornerRadius(current.cornerRadius || 0);
+      }
+    }
+  }, [selectedSlotId, photoSlots]);
 
   // Dynamic responsive canvas auto-scaling on mobile (desktop remains untouched at 0.38 default)
   useEffect(() => {
@@ -317,6 +354,203 @@ export default function EditorPage() {
     }
   };
 
+  const handleSelectSlotById = (slotId: string) => {
+    const target = photoSlots.find((s) => s.id === slotId);
+    if (target) {
+      handleSelectSlot(target);
+    }
+  };
+
+  // Push an undo snapshot of current template layout state
+  const pushHistorySnapshot = (customLayout?: LayoutJson) => {
+    if (!template) return;
+    const snapshot = customLayout || JSON.parse(JSON.stringify(template.layoutJson));
+    setUndoStack((prev) => [...prev.slice(-24), snapshot]);
+    setRedoStack([]);
+  };
+
+  const handleUndo = () => {
+    if (undoStack.length === 0 || !template) return;
+    const previousLayout = undoStack[undoStack.length - 1];
+    const newUndoStack = undoStack.slice(0, -1);
+
+    setRedoStack((prev) => [...prev, JSON.parse(JSON.stringify(template.layoutJson))]);
+    setUndoStack(newUndoStack);
+
+    const updatedTemplate: Template = {
+      ...template,
+      layoutJson: previousLayout,
+    };
+    setTemplate(updatedTemplate);
+    saveTemplate(updatedTemplate).catch(() => {});
+  };
+
+  const handleRedo = () => {
+    if (redoStack.length === 0 || !template) return;
+    const nextLayout = redoStack[redoStack.length - 1];
+    const newRedoStack = redoStack.slice(0, -1);
+
+    setUndoStack((prev) => [...prev, JSON.parse(JSON.stringify(template.layoutJson))]);
+    setRedoStack(newRedoStack);
+
+    const updatedTemplate: Template = {
+      ...template,
+      layoutJson: nextLayout,
+    };
+    setTemplate(updatedTemplate);
+    saveTemplate(updatedTemplate).catch(() => {});
+  };
+
+  const handlePhotoDrop = (slotId: string, file: File) => {
+    const targetSlot = photoSlots.find((s) => s.id === slotId) || activeSlot;
+    if (!targetSlot) return;
+
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      const dataUrl = event.target?.result as string;
+      if (!dataUrl) return;
+
+      pushHistorySnapshot();
+      rawPhotosRef.current[targetSlot.id] = dataUrl;
+      setRawPhotos((prev) => ({ ...prev, [targetSlot.id]: dataUrl }));
+      await applyCoverPhotoToSlot(targetSlot, dataUrl);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  // Aspect ratio presets
+  const ASPECT_PRESETS = [
+    { id: "free", label: "Free", ratio: 0 },
+    { id: "1:1", label: "1:1", ratio: 1.0 },
+    { id: "4:5", label: "4:5", ratio: 4 / 5 },
+    { id: "9:16", label: "9:16", ratio: 9 / 16 },
+    { id: "3:4", label: "3:4", ratio: 3 / 4 },
+    { id: "16:9", label: "16:9", ratio: 16 / 9 },
+  ];
+
+  const handleApplyAspectRatio = (presetKey: string) => {
+    setActiveAspectPreset(presetKey);
+    const preset = ASPECT_PRESETS.find((p) => p.id === presetKey);
+    if (!preset) return;
+
+    if (isAdjustingSlot && adjusterRectRef.current) {
+      const rect = adjusterRectRef.current;
+      if (preset.ratio > 0) {
+        const currentW = rect.getScaledWidth();
+        const newH = Math.max(20, Math.round(currentW / preset.ratio));
+        rect.set({ height: newH, scaleY: 1 });
+        rect.setCoords();
+        rect.fire("scaling");
+        fabricCanvas?.renderAll();
+      }
+    } else if (activeSlot) {
+      if (preset.ratio > 0) {
+        pushHistorySnapshot();
+        const newH = Math.max(20, Math.round(activeSlot.width / preset.ratio));
+        startAdjustSlotMode(activeSlot);
+        setTimeout(() => {
+          if (adjusterRectRef.current) {
+            adjusterRectRef.current.set({ height: newH, scaleY: 1 });
+            adjusterRectRef.current.setCoords();
+            adjusterRectRef.current.fire("scaling");
+            fabricCanvas?.renderAll();
+          }
+        }, 50);
+      }
+    }
+  };
+
+  const handleToggleAspectLock = () => {
+    const nextLocked = !aspectRatioLocked;
+    setAspectRatioLocked(nextLocked);
+    if (adjusterRectRef.current) {
+      adjusterRectRef.current.set({ lockUniScaling: nextLocked });
+      fabricCanvas?.renderAll();
+    }
+  };
+
+  const handleCornerRadiusChange = (radius: number) => {
+    setActiveCornerRadius(radius);
+    if (!activeSlot) return;
+
+    if (fabricCanvas) {
+      const photoObj = fabricCanvas.getObjects().find((o: any) => o.elementId === activeSlot.id);
+      if (photoObj && photoObj.clipPath) {
+        photoObj.clipPath.set({
+          rx: radius,
+          ry: radius,
+        });
+        fabricCanvas.renderAll();
+      }
+    }
+
+    setTemplate((prev) => {
+      const updated = {
+        ...prev,
+        layoutJson: {
+          ...prev.layoutJson,
+          elements: prev.layoutJson.elements.map((el) =>
+            el.id === activeSlot.id
+              ? {
+                  ...el,
+                  rx: radius,
+                  ry: radius,
+                  cornerRadius: radius,
+                }
+              : el
+          ),
+        },
+      };
+      saveTemplate(updated).catch(() => {});
+      return updated;
+    });
+  };
+
+  const handleNumericParamChange = (
+    param: "width" | "height" | "cx" | "cy" | "rotation" | "cornerRadius",
+    val: number
+  ) => {
+    if (isNaN(val)) return;
+
+    if (param === "cornerRadius") {
+      handleCornerRadiusChange(Math.max(0, Math.min(80, Math.round(val))));
+      return;
+    }
+
+    if (!isAdjustingSlot && activeSlot) {
+      startAdjustSlotMode(activeSlot);
+    }
+
+    setTimeout(() => {
+      if (!adjusterRectRef.current) return;
+      const rect = adjusterRectRef.current;
+
+      if (param === "width") {
+        rect.set({ width: Math.max(20, Math.round(val)), scaleX: 1 });
+        rect.setCoords();
+        rect.fire("scaling");
+      } else if (param === "height") {
+        rect.set({ height: Math.max(20, Math.round(val)), scaleY: 1 });
+        rect.setCoords();
+        rect.fire("scaling");
+      } else if (param === "cx") {
+        rect.set("left", Math.round(val));
+        rect.setCoords();
+        rect.fire("moving");
+      } else if (param === "cy") {
+        rect.set("top", Math.round(val));
+        rect.setCoords();
+        rect.fire("moving");
+      } else if (param === "rotation") {
+        let angle = Math.round(val * 10) / 10;
+        rect.set("angle", angle);
+        rect.setCoords();
+        rect.fire("rotating");
+      }
+      fabricCanvas?.renderAll();
+    }, 30);
+  };
+
   const handlePickPhotoForSlot = (slot: PhotoSlot) => {
     pendingSlotRef.current = slot;
     setSelectedSlotId(slot.id);
@@ -374,6 +608,7 @@ export default function EditorPage() {
       const slotAngle = slot.rotation || 0;
       const slotCenterX = slot.cx != null ? slot.cx : slot.left + slotW / 2;
       const slotCenterY = slot.cy != null ? slot.cy : slot.top + slotH / 2;
+      const slotRadius = (slot as any).cornerRadius ?? activeCornerRadius ?? 0;
 
       // Automatically scale to COVER the full slot dimensions (no empty gaps)
       const coverScale = Math.max(slotW / imgW, slotH / imgH);
@@ -387,6 +622,8 @@ export default function EditorPage() {
         originX: "center",
         originY: "center",
         angle: slotAngle,
+        rx: slotRadius,
+        ry: slotRadius,
         absolutePositioned: true,
       });
 
@@ -737,6 +974,7 @@ export default function EditorPage() {
       cornerSize: 22,
       cornerStyle: "circle",
       transparentCorners: false,
+      lockUniScaling: aspectRatioLocked,
       padding: 0,
       hoverCursor: "move",
       moveCursor: "grabbing",
@@ -769,6 +1007,8 @@ export default function EditorPage() {
           originY: "center",
           scaleX: 1,
           scaleY: 1,
+          rx: activeCornerRadius,
+          ry: activeCornerRadius,
         });
         photoObj.clipPath.setCoords();
       }
@@ -806,15 +1046,75 @@ export default function EditorPage() {
         cx: currentCx,
         cy: currentCy,
         rotation: currentAngle,
+        cornerRadius: activeCornerRadius,
       });
 
       fabricCanvas.renderAll();
     };
 
-    adjusterRect.on("moving", applyGeometryUpdate);
+    adjusterRect.on("moving", () => {
+      let currentCx = Math.round(adjusterRect.left);
+      let currentCy = Math.round(adjusterRect.top);
+      const guides: { x?: number; y?: number } = {};
+
+      // 1. Center X snap (540px)
+      if (Math.abs(currentCx - 540) <= 12) {
+        currentCx = 540;
+        adjusterRect.set("left", 540);
+        guides.x = 540;
+      } else {
+        // Sibling X alignment
+        const siblingX = photoSlots.find(
+          (s) => s.id !== slot.id && s.cx != null && Math.abs(s.cx - currentCx) <= 10
+        );
+        if (siblingX && siblingX.cx != null) {
+          currentCx = siblingX.cx;
+          adjusterRect.set("left", siblingX.cx);
+          guides.x = siblingX.cx;
+        }
+      }
+
+      // 2. Center Y snap (960px)
+      if (Math.abs(currentCy - 960) <= 12) {
+        currentCy = 960;
+        adjusterRect.set("top", 960);
+        guides.y = 960;
+      } else {
+        // Sibling Y alignment
+        const siblingY = photoSlots.find(
+          (s) => s.id !== slot.id && s.cy != null && Math.abs(s.cy - currentCy) <= 10
+        );
+        if (siblingY && siblingY.cy != null) {
+          currentCy = siblingY.cy;
+          adjusterRect.set("top", siblingY.cy);
+          guides.y = siblingY.cy;
+        }
+      }
+
+      setSnapGuides(Object.keys(guides).length > 0 ? guides : null);
+      applyGeometryUpdate();
+    });
+
+    adjusterRect.on("rotating", () => {
+      let currentAngle = adjusterRect.angle % 360;
+      if (currentAngle > 180) currentAngle -= 360;
+      if (currentAngle < -180) currentAngle += 360;
+
+      // Magnetic snap to 0°, ±45°, ±90°, ±135°, ±180°
+      const snapTargets = [0, 45, 90, 135, 180, -45, -90, -135];
+      for (const target of snapTargets) {
+        if (Math.abs(currentAngle - target) <= 2.5) {
+          adjusterRect.set("angle", target);
+          break;
+        }
+      }
+      applyGeometryUpdate();
+    });
+
     adjusterRect.on("scaling", applyGeometryUpdate);
-    adjusterRect.on("rotating", applyGeometryUpdate);
+
     adjusterRect.on("modified", () => {
+      setSnapGuides(null);
       // Normalize scale factors into width/height
       const finalW = Math.max(20, Math.round(adjusterRect.getScaledWidth()));
       const finalH = Math.max(20, Math.round(adjusterRect.getScaledHeight()));
@@ -841,15 +1141,19 @@ export default function EditorPage() {
       cx: slotCx,
       cy: slotCy,
       rotation: slotAngle,
+      cornerRadius: activeCornerRadius,
     });
   };
 
   const stopAdjustSlotMode = async () => {
+    setSnapGuides(null);
     if (!fabricCanvas || !adjusterRectRef.current) {
       setIsAdjustingSlot(false);
       setAdjustingGeometry(null);
       return;
     }
+
+    pushHistorySnapshot();
 
     const adjusterRect = adjusterRectRef.current;
     const targetSlotId = (adjusterRect as any).targetSlotId || selectedSlotId;
@@ -883,6 +1187,8 @@ export default function EditorPage() {
           originY: "center",
           scaleX: 1,
           scaleY: 1,
+          rx: activeCornerRadius,
+          ry: activeCornerRadius,
         });
         photoObj.clipPath.setCoords();
       }
@@ -938,6 +1244,9 @@ export default function EditorPage() {
             rotation: finalAngle,
             cx: finalCx,
             cy: finalCy,
+            rx: activeCornerRadius,
+            ry: activeCornerRadius,
+            cornerRadius: activeCornerRadius,
           };
         }
         return el;
@@ -1087,6 +1396,111 @@ export default function EditorPage() {
     }
   };
 
+  // Global Keyboard Shortcuts (1-9 slot selection, nudge position, rotate tilt, undo/redo, esc)
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.isContentEditable)
+      ) {
+        return;
+      }
+
+      // Undo: Ctrl+Z or Cmd+Z (no shift)
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z" && !e.shiftKey) {
+        e.preventDefault();
+        handleUndo();
+        return;
+      }
+
+      // Redo: Ctrl+Y, Cmd+Shift+Z, or Ctrl+Shift+Z
+      if (
+        ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "y") ||
+        ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z" && e.shiftKey)
+      ) {
+        e.preventDefault();
+        handleRedo();
+        return;
+      }
+
+      // Escape: cancel adjust or close shortcuts modal
+      if (e.key === "Escape") {
+        if (isAdjustingSlot) {
+          stopAdjustSlotMode();
+        } else if (showShortcutsModal) {
+          setShowShortcutsModal(false);
+        }
+        return;
+      }
+
+      // Help: ? opens keyboard shortcuts modal
+      if (e.key === "?" && !e.ctrlKey && !e.metaKey) {
+        e.preventDefault();
+        setShowShortcutsModal((prev) => !prev);
+        return;
+      }
+
+      // Slot Quick Select: 1-9
+      if (!e.ctrlKey && !e.metaKey && !e.altKey && e.key >= "1" && e.key <= "9") {
+        const idx = parseInt(e.key, 10) - 1;
+        if (photoSlots[idx]) {
+          e.preventDefault();
+          handleSelectSlot(photoSlots[idx]);
+          return;
+        }
+      }
+
+      // Angle Rotate: [ (-1° / -5° with Shift), ] (+1° / +5° with Shift)
+      if (e.key === "[" || e.key === "]") {
+        e.preventDefault();
+        const delta = (e.key === "[" ? -1 : 1) * (e.shiftKey ? 5 : 1);
+        if (isAdjustingSlot) {
+          handleNudgeSlot("rotation", delta);
+        } else if (activeSlot) {
+          startAdjustSlotMode(activeSlot);
+          setTimeout(() => handleNudgeSlot("rotation", delta), 40);
+        }
+        return;
+      }
+
+      // Arrow Keys: Nudge position (1px, or 10px with Shift)
+      if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(e.key)) {
+        e.preventDefault();
+        const step = e.shiftKey ? 10 : 1;
+        let param: "cx" | "cy" = "cx";
+        let delta = 0;
+        if (e.key === "ArrowLeft") {
+          param = "cx";
+          delta = -step;
+        } else if (e.key === "ArrowRight") {
+          param = "cx";
+          delta = step;
+        } else if (e.key === "ArrowUp") {
+          param = "cy";
+          delta = -step;
+        } else if (e.key === "ArrowDown") {
+          param = "cy";
+          delta = step;
+        }
+
+        if (isAdjustingSlot) {
+          handleNudgeSlot(param, delta);
+        } else if (activeSlot) {
+          startAdjustSlotMode(activeSlot);
+          setTimeout(() => handleNudgeSlot(param, delta), 40);
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [photoSlots, activeSlot, isAdjustingSlot, showShortcutsModal, undoStack, redoStack]);
+
   return (
     <div className="min-h-screen bg-plum text-cream flex flex-col overflow-hidden font-poppins selection:bg-mauve selection:text-cream">
       {/* Hidden file input for uploading images */}
@@ -1123,10 +1537,42 @@ export default function EditorPage() {
               {template.category} &middot; 1080 &times; 1920
             </span>
           </div>
+
+          {/* Undo / Redo controls */}
+          <div className="hidden sm:flex items-center bg-plum/60 rounded-full border border-dustyPink/20 p-0.5 ml-2">
+            <button
+              type="button"
+              onClick={handleUndo}
+              disabled={undoStack.length === 0}
+              className="p-1.5 hover:bg-mauve/30 disabled:opacity-30 rounded-full text-cream transition-colors cursor-pointer disabled:cursor-not-allowed"
+              title="Undo (Ctrl+Z)"
+            >
+              <Undo2 className="w-3.5 h-3.5" />
+            </button>
+            <button
+              type="button"
+              onClick={handleRedo}
+              disabled={redoStack.length === 0}
+              className="p-1.5 hover:bg-mauve/30 disabled:opacity-30 rounded-full text-cream transition-colors cursor-pointer disabled:cursor-not-allowed"
+              title="Redo (Ctrl+Y)"
+            >
+              <Redo2 className="w-3.5 h-3.5" />
+            </button>
+          </div>
         </div>
 
-        {/* Right: Zoom controls, Upload Photo & Export Button */}
+        {/* Right: Shortcuts Guide, Zoom controls, Upload Photo & Export Button */}
         <div className="flex items-center space-x-1.5 sm:space-x-3 flex-shrink-0">
+          {/* Keyboard Shortcuts Guide Button */}
+          <button
+            type="button"
+            onClick={() => setShowShortcutsModal(true)}
+            className="p-2 min-w-[38px] min-h-[38px] rounded-full bg-plum/60 hover:bg-mauve/30 border border-dustyPink/20 text-cream/80 hover:text-cream transition-colors hidden sm:flex items-center justify-center cursor-pointer"
+            title="Keyboard Shortcuts Guide (?)"
+          >
+            <HelpCircle className="w-4 h-4 text-dustyPink" />
+          </button>
+
           {/* Upload Custom Photo Button */}
           <button
             onClick={triggerImageUpload}
@@ -1200,6 +1646,10 @@ export default function EditorPage() {
               scale={canvasScale}
               onCanvasReady={handleCanvasReady}
               onSelectionChange={handleSelectionChange}
+              onSlotSelect={handleSelectSlotById}
+              onPhotoDrop={handlePhotoDrop}
+              selectedSlotId={selectedSlotId}
+              snapGuides={snapGuides}
               className="border md:border-2 border-dustyPink/40 ring-4 md:ring-8 ring-plum/50 shadow-2xl rounded-sm"
             />
           </div>
@@ -1301,6 +1751,64 @@ export default function EditorPage() {
                       </>
                     )}
                   </button>
+                </div>
+
+                {/* Aspect Ratio Presets & Lock Toggle */}
+                <div className="p-3 rounded-xl bg-plum-dark/60 border border-dustyPink/20 space-y-2">
+                  <div className="flex items-center justify-between text-[11px] font-semibold text-dustyPink uppercase tracking-wider">
+                    <span>Aspect Ratio</span>
+                    <button
+                      type="button"
+                      onClick={handleToggleAspectLock}
+                      className={`flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium transition-all ${
+                        aspectRatioLocked
+                          ? "bg-peachPink text-plum font-bold"
+                          : "bg-mauve/20 text-cream/70 hover:text-cream"
+                      }`}
+                      title={aspectRatioLocked ? "Aspect ratio locked" : "Aspect ratio free"}
+                    >
+                      {aspectRatioLocked ? <Lock className="w-3 h-3" /> : <Unlock className="w-3 h-3" />}
+                      <span>{aspectRatioLocked ? "Locked" : "Unlocked"}</span>
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-3 gap-1.5">
+                    {ASPECT_PRESETS.map((p) => (
+                      <button
+                        key={p.id}
+                        type="button"
+                        onClick={() => handleApplyAspectRatio(p.id)}
+                        className={`py-1 px-1.5 rounded-lg text-[10px] font-medium text-center transition-all ${
+                          activeAspectPreset === p.id
+                            ? "bg-cream text-plum font-bold shadow-sm"
+                            : "bg-mauve/20 hover:bg-mauve/40 text-cream/80 hover:text-cream"
+                        }`}
+                      >
+                        {p.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Corner Radius Slider */}
+                <div className="p-3 rounded-xl bg-plum-dark/60 border border-dustyPink/20 space-y-1.5">
+                  <div className="flex items-center justify-between text-[11px] font-semibold text-dustyPink uppercase tracking-wider">
+                    <span>Corner Radius</span>
+                    <span className="font-mono text-cream font-bold text-xs">{activeCornerRadius}px</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="0"
+                    max="80"
+                    step="2"
+                    value={activeCornerRadius}
+                    onChange={(e) => handleCornerRadiusChange(parseInt(e.target.value, 10))}
+                    className="w-full accent-mauve cursor-pointer"
+                  />
+                  <div className="flex justify-between text-[9px] text-cream/40 font-mono">
+                    <span>Sharp (0px)</span>
+                    <span>Soft (24px)</span>
+                    <span>Pill (80px)</span>
+                  </div>
                 </div>
 
                 {/* Interactive Slot Geometry Editing Panel */}
@@ -1507,6 +2015,107 @@ export default function EditorPage() {
                     </button>
                   </div>
                 </div>
+
+                {/* Section: Direct Numeric Coordinates Inspector */}
+                <div className="pt-3 border-t border-dustyPink/20 space-y-2.5">
+                  <div className="flex items-center justify-between text-[11px] font-bold uppercase tracking-wider text-dustyPink">
+                    <span>Numeric Coordinates Inspector</span>
+                    <span className="text-[9px] font-mono text-cream/60">Story (1080×1920)</span>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div className="p-2 rounded-xl bg-plum-dark/60 border border-dustyPink/20 flex flex-col gap-1">
+                      <label className="text-[10px] text-dustyPink font-semibold uppercase tracking-wider">Width</label>
+                      <div className="flex items-center gap-1">
+                        <input
+                          type="number"
+                          min="40"
+                          max="1080"
+                          value={adjustingGeometry?.width ?? Math.round(activeSlot.width)}
+                          onChange={(e) => handleNumericParamChange("width", parseInt(e.target.value, 10))}
+                          className="w-full bg-plum/70 border border-dustyPink/30 rounded-lg px-2 py-1 text-xs font-mono text-cream focus:outline-none focus:border-peachPink"
+                        />
+                        <span className="text-[10px] font-mono text-cream/50">px</span>
+                      </div>
+                    </div>
+
+                    <div className="p-2 rounded-xl bg-plum-dark/60 border border-dustyPink/20 flex flex-col gap-1">
+                      <label className="text-[10px] text-dustyPink font-semibold uppercase tracking-wider">Height</label>
+                      <div className="flex items-center gap-1">
+                        <input
+                          type="number"
+                          min="40"
+                          max="1920"
+                          value={adjustingGeometry?.height ?? Math.round(activeSlot.height)}
+                          onChange={(e) => handleNumericParamChange("height", parseInt(e.target.value, 10))}
+                          className="w-full bg-plum/70 border border-dustyPink/30 rounded-lg px-2 py-1 text-xs font-mono text-cream focus:outline-none focus:border-peachPink"
+                        />
+                        <span className="text-[10px] font-mono text-cream/50">px</span>
+                      </div>
+                    </div>
+
+                    <div className="p-2 rounded-xl bg-plum-dark/60 border border-dustyPink/20 flex flex-col gap-1">
+                      <label className="text-[10px] text-dustyPink font-semibold uppercase tracking-wider">Center X</label>
+                      <div className="flex items-center gap-1">
+                        <input
+                          type="number"
+                          min="0"
+                          max="1080"
+                          value={adjustingGeometry?.cx ?? Math.round(activeSlot.cx ?? activeSlot.left + activeSlot.width / 2)}
+                          onChange={(e) => handleNumericParamChange("cx", parseInt(e.target.value, 10))}
+                          className="w-full bg-plum/70 border border-dustyPink/30 rounded-lg px-2 py-1 text-xs font-mono text-cream focus:outline-none focus:border-peachPink"
+                        />
+                        <span className="text-[10px] font-mono text-cream/50">px</span>
+                      </div>
+                    </div>
+
+                    <div className="p-2 rounded-xl bg-plum-dark/60 border border-dustyPink/20 flex flex-col gap-1">
+                      <label className="text-[10px] text-dustyPink font-semibold uppercase tracking-wider">Center Y</label>
+                      <div className="flex items-center gap-1">
+                        <input
+                          type="number"
+                          min="0"
+                          max="1920"
+                          value={adjustingGeometry?.cy ?? Math.round(activeSlot.cy ?? activeSlot.top + activeSlot.height / 2)}
+                          onChange={(e) => handleNumericParamChange("cy", parseInt(e.target.value, 10))}
+                          className="w-full bg-plum/70 border border-dustyPink/30 rounded-lg px-2 py-1 text-xs font-mono text-cream focus:outline-none focus:border-peachPink"
+                        />
+                        <span className="text-[10px] font-mono text-cream/50">px</span>
+                      </div>
+                    </div>
+
+                    <div className="p-2 rounded-xl bg-plum-dark/60 border border-dustyPink/20 flex flex-col gap-1">
+                      <label className="text-[10px] text-dustyPink font-semibold uppercase tracking-wider">Rotation</label>
+                      <div className="flex items-center gap-1">
+                        <input
+                          type="number"
+                          min="-180"
+                          max="180"
+                          step="0.5"
+                          value={adjustingGeometry?.rotation ?? Math.round((activeSlot.rotation ?? 0) * 10) / 10}
+                          onChange={(e) => handleNumericParamChange("rotation", parseFloat(e.target.value))}
+                          className="w-full bg-plum/70 border border-dustyPink/30 rounded-lg px-2 py-1 text-xs font-mono text-cream focus:outline-none focus:border-peachPink"
+                        />
+                        <span className="text-[10px] font-mono text-cream/50">°</span>
+                      </div>
+                    </div>
+
+                    <div className="p-2 rounded-xl bg-plum-dark/60 border border-dustyPink/20 flex flex-col gap-1">
+                      <label className="text-[10px] text-dustyPink font-semibold uppercase tracking-wider">Corner Radius</label>
+                      <div className="flex items-center gap-1">
+                        <input
+                          type="number"
+                          min="0"
+                          max="80"
+                          value={activeCornerRadius}
+                          onChange={(e) => handleNumericParamChange("cornerRadius", parseInt(e.target.value, 10))}
+                          className="w-full bg-plum/70 border border-dustyPink/30 rounded-lg px-2 py-1 text-xs font-mono text-cream focus:outline-none focus:border-peachPink"
+                        />
+                        <span className="text-[10px] font-mono text-cream/50">px</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </>
             ) : (
               <div className="text-center py-6">
@@ -1543,6 +2152,7 @@ export default function EditorPage() {
                 {photoSlots.map((slot) => {
                   const isSelected = selectedSlotId === slot.id;
                   const previewImg = slotThumbnails[slot.id] || slot.currentSrc;
+                  const isFilled = Boolean(slotThumbnails[slot.id] || rawPhotos[slot.id]);
                   return (
                     <div
                       key={slot.id}
@@ -1563,9 +2173,20 @@ export default function EditorPage() {
                           />
                         </div>
                         <div className="min-w-0">
-                          <span className="text-xs font-medium text-cream truncate block">
-                            {slot.label}
-                          </span>
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-xs font-medium text-cream truncate block">
+                              {slot.label}
+                            </span>
+                            {isFilled ? (
+                              <span className="text-[8px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                                Filled
+                              </span>
+                            ) : (
+                              <span className="text-[8px] px-1.5 py-0.5 rounded-full bg-white/10 text-cream/40">
+                                Empty
+                              </span>
+                            )}
+                          </div>
                           <span className="text-[10px] text-dustyPink font-mono block">
                             {Math.round(slot.width)} &times; {Math.round(slot.height)}
                           </span>
@@ -1942,6 +2563,7 @@ export default function EditorPage() {
         targetWidth={cropperModal.targetSlot?.width || 600}
         targetHeight={cropperModal.targetSlot?.height || 600}
         slotLabel={cropperModal.targetSlot?.label || "Photo Slot"}
+        cornerRadius={cropperModal.targetSlot?.cornerRadius || activeCornerRadius || 0}
         onConfirm={(croppedDataUrl) => {
           if (cropperModal.targetSlot) {
             applyCroppedImageToSlot(cropperModal.targetSlot, croppedDataUrl);
@@ -1962,6 +2584,72 @@ export default function EditorPage() {
         filename={mobileExportModal.filename}
         onClose={() => setMobileExportModal({ isOpen: false, imageUrl: "", filename: "" })}
       />
+
+      {/* Keyboard Shortcuts Help Modal */}
+      {showShortcutsModal && (
+        <div className="fixed inset-0 z-50 bg-[#0d0a0c]/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-[#181116] border border-[#E2B4BD]/30 rounded-3xl max-w-md w-full p-6 text-cream shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-dustyPink/20 pb-3">
+              <div className="flex items-center gap-2">
+                <HelpCircle className="w-5 h-5 text-peachPink" />
+                <h3 className="font-playfair text-base font-bold text-cream">Editor Keyboard Shortcuts</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowShortcutsModal(false)}
+                className="w-8 h-8 rounded-full flex items-center justify-center text-cream/70 hover:text-cream hover:bg-mauve/20 cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-2 text-xs">
+              <div className="flex items-center justify-between p-2 rounded-xl bg-plum/40 border border-dustyPink/20">
+                <span className="text-cream/90">Quick Select Photo Slot</span>
+                <kbd className="px-2 py-0.5 rounded bg-plum-dark/90 border border-dustyPink/40 font-mono text-[11px] text-peachPink">Keys 1 – 9</kbd>
+              </div>
+
+              <div className="flex items-center justify-between p-2 rounded-xl bg-plum/40 border border-dustyPink/20">
+                <span className="text-cream/90">Zoom Photo in Slot</span>
+                <kbd className="px-2 py-0.5 rounded bg-plum-dark/90 border border-dustyPink/40 font-mono text-[11px] text-peachPink">Scroll Wheel / Pinch</kbd>
+              </div>
+
+              <div className="flex items-center justify-between p-2 rounded-xl bg-plum/40 border border-dustyPink/20">
+                <span className="text-cream/90">Swap Photo in Slot</span>
+                <kbd className="px-2 py-0.5 rounded bg-plum-dark/90 border border-dustyPink/40 font-mono text-[11px] text-peachPink">Drag &amp; Drop file</kbd>
+              </div>
+
+              <div className="flex items-center justify-between p-2 rounded-xl bg-plum/40 border border-dustyPink/20">
+                <span className="text-cream/90">Nudge Position (1px / 10px)</span>
+                <kbd className="px-2 py-0.5 rounded bg-plum-dark/90 border border-dustyPink/40 font-mono text-[11px] text-peachPink">Arrow Keys / Shift+Arrows</kbd>
+              </div>
+
+              <div className="flex items-center justify-between p-2 rounded-xl bg-plum/40 border border-dustyPink/20">
+                <span className="text-cream/90">Rotate Tilt Angle (1° / 5°)</span>
+                <kbd className="px-2 py-0.5 rounded bg-plum-dark/90 border border-dustyPink/40 font-mono text-[11px] text-peachPink">[ and ] / Shift+[ ]</kbd>
+              </div>
+
+              <div className="flex items-center justify-between p-2 rounded-xl bg-plum/40 border border-dustyPink/20">
+                <span className="text-cream/90">Undo / Redo</span>
+                <kbd className="px-2 py-0.5 rounded bg-plum-dark/90 border border-dustyPink/40 font-mono text-[11px] text-peachPink">Ctrl+Z / Ctrl+Y</kbd>
+              </div>
+
+              <div className="flex items-center justify-between p-2 rounded-xl bg-plum/40 border border-dustyPink/20">
+                <span className="text-cream/90">Exit Slot Adjust Mode</span>
+                <kbd className="px-2 py-0.5 rounded bg-plum-dark/90 border border-dustyPink/40 font-mono text-[11px] text-peachPink">Esc</kbd>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setShowShortcutsModal(false)}
+              className="w-full py-2.5 rounded-xl bg-cream hover:bg-dustyPink text-plum font-semibold text-xs transition-colors cursor-pointer"
+            >
+              Got it
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

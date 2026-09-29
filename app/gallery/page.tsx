@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef, useCallback } from "react";
+import React, { useState, useRef, useCallback, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -18,6 +18,7 @@ import {
   Plus,
   Trash2,
   Image as ImageIcon,
+  Copy,
 } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import templatesData from "@/data/templates.json";
@@ -59,8 +60,21 @@ export default function UploadTemplateFlowPage() {
   const [previewData, setPreviewData] = useState<PreviewData | null>(null);
   const [activeTab, setActiveTab] = useState<"overlay" | "cutout">("overlay");
 
+  // Custom slot labels for renaming slots
+  const [slotLabels, setSlotLabels] = useState<{ [idx: number]: string }>({});
+
+  // Interactive bounding box dragging / resizing on preview
+  const [activeDragState, setActiveDragState] = useState<{
+    index: number;
+    mode: "move" | "resize";
+    startX: number;
+    startY: number;
+    initialSlot: { x: number; y: number; width: number; height: number };
+  } | null>(null);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   const reviewSectionRef = useRef<HTMLDivElement>(null);
+  const previewContainerRef = useRef<HTMLDivElement>(null);
 
   // Starter example templates from templates.json for quick inspiration
   const starterTemplates = (templatesData as Template[]).slice(0, 3);
@@ -156,42 +170,12 @@ export default function UploadTemplateFlowPage() {
     }
   };
 
-  // Update slot coordinates
-  const handleUpdateSlot = (index: number, updates: Partial<DetectedSlot>) => {
+  // Sync placeholder elements across template JSON and state
+  const syncPlaceholders = (
+    newPlaceholders: DetectedSlot[],
+    customLabels: { [idx: number]: string } = slotLabels
+  ) => {
     if (!previewData) return;
-    const newPlaceholders = [...previewData.placeholders];
-    newPlaceholders[index] = { ...newPlaceholders[index], ...updates };
-
-    const updatedElements = previewData.templateJson.layoutJson.elements.map((el: any) => {
-      if (el.id === `photo-placeholder-${index + 1}`) {
-        return {
-          ...el,
-          left: newPlaceholders[index].x,
-          top: newPlaceholders[index].y,
-          width: newPlaceholders[index].width,
-          height: newPlaceholders[index].height,
-        };
-      }
-      return el;
-    });
-
-    setPreviewData({
-      ...previewData,
-      placeholders: newPlaceholders,
-      templateJson: {
-        ...previewData.templateJson,
-        layoutJson: {
-          ...previewData.templateJson.layoutJson,
-          elements: updatedElements,
-        },
-      },
-    });
-  };
-
-  // Delete a detected slot
-  const handleDeleteSlot = (index: number) => {
-    if (!previewData) return;
-    const newPlaceholders = previewData.placeholders.filter((_, i) => i !== index);
 
     const samplePhotos = [
       "https://images.unsplash.com/photo-1522383225653-ed111181a951?w=1000&auto=format&fit=crop&q=80",
@@ -206,7 +190,7 @@ export default function UploadTemplateFlowPage() {
       width: p.width,
       height: p.height,
       src: samplePhotos[idx % samplePhotos.length],
-      placeholderLabel: newPlaceholders.length > 1 ? `Photo #${idx + 1}` : "Tap to replace photo",
+      placeholderLabel: customLabels[idx] || (newPlaceholders.length > 1 ? `Photo #${idx + 1}` : "Tap to replace photo"),
       isPlaceholder: true,
       stroke: "#FFF5F5",
       strokeWidth: 2,
@@ -238,6 +222,109 @@ export default function UploadTemplateFlowPage() {
         },
       },
     });
+  };
+
+  // Pointer drag & resize handlers for interactive overlay bounding boxes
+  useEffect(() => {
+    if (!activeDragState || !previewData || !previewContainerRef.current) return;
+
+    const handlePointerMove = (e: MouseEvent | TouchEvent) => {
+      const clientX = "touches" in e ? e.touches[0].clientX : (e as MouseEvent).clientX;
+      const clientY = "touches" in e ? e.touches[0].clientY : (e as MouseEvent).clientY;
+
+      const rect = previewContainerRef.current?.getBoundingClientRect();
+      if (!rect) return;
+
+      const scaleX = previewData.dimensions.width / rect.width;
+      const scaleY = previewData.dimensions.height / rect.height;
+
+      const dx = (clientX - activeDragState.startX) * scaleX;
+      const dy = (clientY - activeDragState.startY) * scaleY;
+
+      const { index, mode, initialSlot } = activeDragState;
+      const maxW = previewData.dimensions.width;
+      const maxH = previewData.dimensions.height;
+
+      const updated = [...previewData.placeholders];
+      if (mode === "move") {
+        const newX = Math.max(0, Math.min(maxW - initialSlot.width, Math.round(initialSlot.x + dx)));
+        const newY = Math.max(0, Math.min(maxH - initialSlot.height, Math.round(initialSlot.y + dy)));
+        updated[index] = { ...updated[index], x: newX, y: newY };
+      } else {
+        const newW = Math.max(40, Math.min(maxW - initialSlot.x, Math.round(initialSlot.width + dx)));
+        const newH = Math.max(40, Math.min(maxH - initialSlot.y, Math.round(initialSlot.height + dy)));
+        updated[index] = { ...updated[index], width: newW, height: newH };
+      }
+
+      setPreviewData((prev) => (prev ? { ...prev, placeholders: updated } : null));
+    };
+
+    const handlePointerUp = () => {
+      if (previewData) {
+        syncPlaceholders(previewData.placeholders);
+      }
+      setActiveDragState(null);
+    };
+
+    window.addEventListener("mousemove", handlePointerMove);
+    window.addEventListener("mouseup", handlePointerUp);
+    window.addEventListener("touchmove", handlePointerMove);
+    window.addEventListener("touchend", handlePointerUp);
+
+    return () => {
+      window.removeEventListener("mousemove", handlePointerMove);
+      window.removeEventListener("mouseup", handlePointerUp);
+      window.removeEventListener("touchmove", handlePointerMove);
+      window.removeEventListener("touchend", handlePointerUp);
+    };
+  }, [activeDragState, previewData, slotLabels]);
+
+  // Update slot coordinates
+  const handleUpdateSlot = (index: number, updates: Partial<DetectedSlot>) => {
+    if (!previewData) return;
+    const newPlaceholders = [...previewData.placeholders];
+    newPlaceholders[index] = { ...newPlaceholders[index], ...updates };
+    syncPlaceholders(newPlaceholders);
+  };
+
+  // Delete a detected slot
+  const handleDeleteSlot = (index: number) => {
+    if (!previewData) return;
+    const newPlaceholders = previewData.placeholders.filter((_, i) => i !== index);
+    syncPlaceholders(newPlaceholders);
+  };
+
+  // Duplicate a detected slot
+  const handleDuplicateSlot = (index: number) => {
+    if (!previewData || !previewData.placeholders[index]) return;
+    const source = previewData.placeholders[index];
+    const maxW = previewData.dimensions.width;
+    const maxH = previewData.dimensions.height;
+    const newX = Math.min(maxW - source.width, source.x + 30);
+    const newY = Math.min(maxH - source.height, source.y + 30);
+
+    const clonedSlot: DetectedSlot = {
+      ...source,
+      x: newX,
+      y: newY,
+    };
+
+    const newPlaceholders = [...previewData.placeholders, clonedSlot];
+    const newLabels = {
+      ...slotLabels,
+      [newPlaceholders.length - 1]: `${slotLabels[index] || `Slot #${index + 1}`} (Copy)`,
+    };
+    setSlotLabels(newLabels);
+    syncPlaceholders(newPlaceholders, newLabels);
+  };
+
+  // Rename a slot
+  const handleRenameSlot = (index: number, newName: string) => {
+    const newLabels = { ...slotLabels, [index]: newName };
+    setSlotLabels(newLabels);
+    if (previewData) {
+      syncPlaceholders(previewData.placeholders, newLabels);
+    }
   };
 
   // Add custom slot
@@ -256,51 +343,7 @@ export default function UploadTemplateFlowPage() {
     };
 
     const newPlaceholders = [...previewData.placeholders, newSlot];
-
-    const samplePhotos = [
-      "https://images.unsplash.com/photo-1522383225653-ed111181a951?w=1000&auto=format&fit=crop&q=80",
-      "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=1000&auto=format&fit=crop&q=80",
-    ];
-    const newElements: any[] = newPlaceholders.map((p, idx) => ({
-      id: `photo-placeholder-${idx + 1}`,
-      type: "image",
-      left: p.x,
-      top: p.y,
-      width: p.width,
-      height: p.height,
-      src: samplePhotos[idx % samplePhotos.length],
-      placeholderLabel: newPlaceholders.length > 1 ? `Photo #${idx + 1}` : "Tap to replace photo",
-      isPlaceholder: true,
-      stroke: "#FFF5F5",
-      strokeWidth: 2,
-    }));
-
-    const overlay = previewData.templateJson.layoutJson.elements.find(
-      (el: any) => el.id === "frame-cutout-overlay"
-    ) || {
-      id: "frame-cutout-overlay",
-      type: "image",
-      left: 0,
-      top: 0,
-      width: 1080,
-      height: 1920,
-      src: previewData.cutoutBase64,
-      selectable: false,
-      isPlaceholder: false,
-    };
-    newElements.push(overlay);
-
-    setPreviewData({
-      ...previewData,
-      placeholders: newPlaceholders,
-      templateJson: {
-        ...previewData.templateJson,
-        layoutJson: {
-          ...previewData.templateJson.layoutJson,
-          elements: newElements,
-        },
-      },
-    });
+    syncPlaceholders(newPlaceholders);
   };
 
   const handleRecutFrame = async () => {
@@ -327,11 +370,15 @@ export default function UploadTemplateFlowPage() {
         thumbnailUrl: previewData.resizedOriginalBase64 || previewData.cutoutBase64,
         layoutJson: {
           ...previewData.templateJson.layoutJson,
-          elements: previewData.templateJson.layoutJson.elements.map((el: any) =>
-            el.id === "frame-cutout-overlay"
-              ? { ...el, src: previewData.cutoutBase64 }
-              : el
-          ),
+          elements: previewData.templateJson.layoutJson.elements.map((el: any, elIdx: number) => {
+            if (el.id === "frame-cutout-overlay") {
+              return { ...el, src: previewData.cutoutBase64 };
+            }
+            if (slotLabels[elIdx]) {
+              return { ...el, placeholderLabel: slotLabels[elIdx] };
+            }
+            return el;
+          }),
         },
       };
 
@@ -651,7 +698,8 @@ export default function UploadTemplateFlowPage() {
                 <div className="flex justify-center bg-black/50 rounded-2xl p-3 sm:p-6 overflow-hidden border border-white/10 shadow-inner">
                   {activeTab === "overlay" && (
                     <div
-                      className="relative rounded-xl overflow-hidden shadow-2xl border border-white/20 bg-black w-full max-w-[320px] sm:max-w-sm mx-auto"
+                      ref={previewContainerRef}
+                      className="relative rounded-xl overflow-hidden shadow-2xl border border-white/20 bg-black w-full max-w-[320px] sm:max-w-sm mx-auto select-none"
                       style={{
                         aspectRatio: `${previewData.dimensions.width} / ${previewData.dimensions.height}`,
                       }}
@@ -661,7 +709,7 @@ export default function UploadTemplateFlowPage() {
                       <img
                         src={previewData.resizedOriginalBase64}
                         alt="Resized Reference Frame"
-                        className="w-full h-full object-cover"
+                        className="w-full h-full object-cover pointer-events-none"
                       />
 
                       {/* Render Colored Bounding Boxes over detected slots using exact percentages */}
@@ -680,14 +728,63 @@ export default function UploadTemplateFlowPage() {
                               width: `${widthPct}%`,
                               height: `${heightPct}%`,
                             }}
-                            className="absolute border-2 border-emerald-400 bg-emerald-500/25 flex flex-col items-center justify-center text-center p-1 pointer-events-none shadow-sm animate-pulse"
+                            onMouseDown={(e) => {
+                              e.stopPropagation();
+                              setActiveDragState({
+                                index: idx,
+                                mode: "move",
+                                startX: e.clientX,
+                                startY: e.clientY,
+                                initialSlot: { ...slot },
+                              });
+                            }}
+                            onTouchStart={(e) => {
+                              if (e.touches[0]) {
+                                setActiveDragState({
+                                  index: idx,
+                                  mode: "move",
+                                  startX: e.touches[0].clientX,
+                                  startY: e.touches[0].clientY,
+                                  initialSlot: { ...slot },
+                                });
+                              }
+                            }}
+                            className="absolute border-2 border-emerald-400 bg-emerald-500/25 flex flex-col items-center justify-center text-center p-1 cursor-grab active:cursor-grabbing shadow-sm hover:border-emerald-300 hover:bg-emerald-500/35 transition-colors select-none group"
                           >
-                            <span className="text-[10px] font-mono font-bold text-white bg-black/80 px-1.5 py-0.5 rounded shadow">
-                              Slot #{idx + 1}
+                            <span className="text-[10px] font-mono font-bold text-white bg-black/80 px-1.5 py-0.5 rounded shadow pointer-events-none">
+                              {slotLabels[idx] || `Slot #${idx + 1}`}
                             </span>
-                            <span className="text-[8px] font-mono text-white/90 drop-shadow">
+                            <span className="text-[8px] font-mono text-white/90 drop-shadow pointer-events-none">
                               {slot.width}&times;{slot.height}
                             </span>
+
+                            {/* Bottom-right resize handle */}
+                            <div
+                              onMouseDown={(e) => {
+                                e.stopPropagation();
+                                setActiveDragState({
+                                  index: idx,
+                                  mode: "resize",
+                                  startX: e.clientX,
+                                  startY: e.clientY,
+                                  initialSlot: { ...slot },
+                                });
+                              }}
+                              onTouchStart={(e) => {
+                                if (e.touches[0]) {
+                                  e.stopPropagation();
+                                  setActiveDragState({
+                                    index: idx,
+                                    mode: "resize",
+                                    startX: e.touches[0].clientX,
+                                    startY: e.touches[0].clientY,
+                                    initialSlot: { ...slot },
+                                  });
+                                }
+                              }}
+                              className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-emerald-400 hover:bg-emerald-300 border border-black cursor-se-resize rounded-tl shadow flex items-center justify-center"
+                              title="Drag to resize slot"
+                            />
                           </div>
                         );
                       })}
@@ -751,16 +848,20 @@ export default function UploadTemplateFlowPage() {
                           key={idx}
                           className="flex items-center justify-between gap-3 p-2.5 rounded-xl bg-white/[0.04] border border-white/10 text-xs min-h-[44px]"
                         >
-                          <div className="flex items-center gap-2">
-                            <span className="w-6 h-6 rounded-md bg-white/[0.1] text-[#FAF7F2] flex items-center justify-center font-mono font-bold text-[11px] border border-white/15">
+                          <div className="flex items-center gap-2 flex-1 min-w-0">
+                            <span className="w-6 h-6 rounded-md bg-white/[0.1] text-[#FAF7F2] flex items-center justify-center font-mono font-bold text-[11px] border border-white/15 flex-shrink-0">
                               {idx + 1}
                             </span>
-                            <span className="font-semibold text-[#FAF7F2] text-xs">
-                              Slot #{idx + 1}
-                            </span>
+                            <input
+                              type="text"
+                              value={slotLabels[idx] ?? `Slot #${idx + 1}`}
+                              onChange={(e) => handleRenameSlot(idx, e.target.value)}
+                              className="px-2 py-1 rounded-lg bg-white/[0.06] border border-white/10 text-xs text-[#FAF7F2] font-semibold focus:outline-none focus:border-[#E2B4BD] min-w-0 flex-1 max-w-[140px]"
+                              placeholder={`Slot #${idx + 1}`}
+                            />
                           </div>
 
-                          <div className="flex items-center gap-2 text-[11px] font-mono">
+                          <div className="flex items-center gap-1.5 text-[11px] font-mono flex-shrink-0">
                             <span className="text-[#FAF7F2]/60">
                               {slot.width}&times;{slot.height}px
                             </span>
@@ -769,15 +870,27 @@ export default function UploadTemplateFlowPage() {
                             </span>
                           </div>
 
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteSlot(idx)}
-                            className="w-11 h-11 min-w-[44px] min-h-[44px] rounded-xl text-red-400 hover:bg-red-500/20 transition-colors flex items-center justify-center active:scale-95 cursor-pointer"
-                            title="Delete this slot"
-                            aria-label={`Delete slot ${idx + 1}`}
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
+                          <div className="flex items-center gap-1 flex-shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => handleDuplicateSlot(idx)}
+                              className="w-9 h-9 rounded-xl text-[#F7D6D0] hover:bg-white/[0.08] transition-colors flex items-center justify-center active:scale-95 cursor-pointer"
+                              title="Duplicate this slot"
+                              aria-label={`Duplicate slot ${idx + 1}`}
+                            >
+                              <Copy className="w-4 h-4" />
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteSlot(idx)}
+                              className="w-9 h-9 rounded-xl text-red-400 hover:bg-red-500/20 transition-colors flex items-center justify-center active:scale-95 cursor-pointer"
+                              title="Delete this slot"
+                              aria-label={`Delete slot ${idx + 1}`}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
                         </div>
                       ))}
                     </div>

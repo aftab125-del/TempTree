@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { LayoutJson, TemplateElement } from "@/types/template";
 import { loadFabric } from "@/lib/fabric";
 import { Loader2 } from "lucide-react";
@@ -12,6 +12,10 @@ interface TemplateCanvasProps {
   scale?: number; // Zoom/scaling multiplier relative to 1080x1920
   onCanvasReady?: (fabricCanvas: any, fabricInstance?: any) => void;
   onSelectionChange?: (selectedObject: any | null) => void;
+  onSlotSelect?: (slotId: string) => void;
+  onPhotoDrop?: (slotId: string, file: File) => void;
+  selectedSlotId?: string | null;
+  snapGuides?: { x?: number; y?: number } | null;
   className?: string;
 }
 
@@ -31,6 +35,10 @@ export default function TemplateCanvas({
   scale = 0.25,
   onCanvasReady,
   onSelectionChange,
+  onSlotSelect,
+  onPhotoDrop,
+  selectedSlotId,
+  snapGuides,
   className = "",
 }: TemplateCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -40,6 +48,31 @@ export default function TemplateCanvas({
   const layoutRef = useRef(layout);
   layoutRef.current = layout;
   const [isLoading, setIsLoading] = useState(true);
+  const [draggedOverSlotId, setDraggedOverSlotId] = useState<string | null>(null);
+
+  // Derive photo slots list for canvas badge overlays
+  const photoSlotsList = useMemo(() => {
+    return layout.elements
+      .filter((el) => el.type === "image" && el.id !== "frame-cutout-overlay")
+      .map((el, idx) => {
+        const imgEl = el as any;
+        const w = imgEl.width || 600;
+        const h = imgEl.height || 600;
+        const rot = imgEl.rotation ?? imgEl.angle ?? 0;
+        const cx = imgEl.cx != null ? imgEl.cx : (imgEl.left || 0) + w / 2;
+        const cy = imgEl.cy != null ? imgEl.cy : (imgEl.top || 0) + h / 2;
+        return {
+          id: imgEl.id,
+          index: idx + 1,
+          label: imgEl.placeholderLabel || `Photo #${idx + 1}`,
+          width: w,
+          height: h,
+          cx,
+          cy,
+          rotation: rot,
+        };
+      });
+  }, [layout]);
 
   // Key by template ID to prevent destroying the live interactive canvas on state updates
   const templateKey =
@@ -165,6 +198,7 @@ export default function TemplateCanvas({
                   const imgW = img.width || 1;
                   const imgH = img.height || 1;
                   const slotAngle = (el as any).rotation ?? el.angle ?? 0;
+                  const slotCornerRadius = (el as any).cornerRadius ?? (el as any).rx ?? 0;
 
                   const slotCenterX = (el as any).cx != null
                     ? (el as any).cx
@@ -176,7 +210,7 @@ export default function TemplateCanvas({
                   // Automatically scale to COVER the full slot dimensions
                   const coverScale = Math.max(slotW / imgW, slotH / imgH);
 
-                  // Clip path tied to slot dimensions and rotation so movement never bleeds outside
+                  // Clip path tied to slot dimensions, rotation and corner radius so movement never bleeds outside
                   const clipRect = new fabric.Rect({
                     left: slotCenterX,
                     top: slotCenterY,
@@ -185,6 +219,8 @@ export default function TemplateCanvas({
                     originX: "center",
                     originY: "center",
                     angle: slotAngle,
+                    rx: slotCornerRadius,
+                    ry: slotCornerRadius,
                     absolutePositioned: true,
                   });
 
@@ -413,13 +449,129 @@ export default function TemplateCanvas({
           canvasInstance.renderAll();
         }
 
-        // Selection listeners for editor mode
+        // Selection & interaction listeners for editor mode
         if (interactive) {
+          // Direct in-slot photo zooming with mouse wheel (bounded to prevent empty borders)
+          canvasInstance.on("mouse:wheel", (opt: any) => {
+            const active = canvasInstance.getActiveObject();
+            if (
+              !active ||
+              !active.elementId ||
+              active.elementId === "frame-cutout-overlay" ||
+              active.elementId === "slot-adjuster-rect"
+            ) {
+              return;
+            }
+
+            const pointer = canvasInstance.getPointer(opt.e);
+            const slotW = active.slotWidth ?? active.targetWidth ?? 600;
+            const slotH = active.slotHeight ?? active.targetHeight ?? 600;
+            const slotCx =
+              active.slotCenterX ??
+              (active.slotLeft != null ? active.slotLeft + slotW / 2 : active.left);
+            const slotCy =
+              active.slotCenterY ??
+              (active.slotTop != null ? active.slotTop + slotH / 2 : active.top);
+            const slotAngle =
+              active.slotAngle != null ? active.slotAngle : (active.clipPath?.angle ?? 0);
+
+            // Test if cursor is inside the slot
+            const dx = pointer.x - slotCx;
+            const dy = pointer.y - slotCy;
+            const rad = (-slotAngle * Math.PI) / 180;
+            const u = dx * Math.cos(rad) - dy * Math.sin(rad);
+            const v = dx * Math.sin(rad) + dy * Math.cos(rad);
+
+            if (Math.abs(u) <= slotW / 2 && Math.abs(v) <= slotH / 2) {
+              opt.e.preventDefault();
+              opt.e.stopPropagation();
+
+              const imgW = active.width || 1;
+              const imgH = active.height || 1;
+              const minScale = Math.max(slotW / imgW, slotH / imgH);
+              const maxScale = minScale * 4.5;
+
+              const zoomDelta = opt.e.deltaY < 0 ? 1.06 : 0.94;
+              const currentScale = active.scaleX || minScale;
+              const targetScale = Math.max(minScale, Math.min(maxScale, currentScale * zoomDelta));
+
+              active.set({
+                scaleX: targetScale,
+                scaleY: targetScale,
+              });
+
+              // Re-clamp displacement so zoom never reveals unpainted borders
+              const scaledW = targetScale * imgW;
+              const scaledH = targetScale * imgH;
+              const maxDispX = Math.max(0, (scaledW - slotW) / 2);
+              const maxDispY = Math.max(0, (scaledH - slotH) / 2);
+
+              const currDx = active.left - slotCx;
+              const currDy = active.top - slotCy;
+              if (Math.abs(slotAngle) > 0.5) {
+                const sRad = (slotAngle * Math.PI) / 180;
+                const sCos = Math.cos(sRad);
+                const sSin = Math.sin(sRad);
+                let localU = currDx * sCos + currDy * sSin;
+                let localV = -currDx * sSin + currDy * sCos;
+                localU = Math.max(-maxDispX, Math.min(maxDispX, localU));
+                localV = Math.max(-maxDispY, Math.min(maxDispY, localV));
+                active.left = slotCx + localU * sCos - localV * sSin;
+                active.top = slotCy + localU * sSin + localV * sCos;
+              } else {
+                active.left = slotCx + Math.max(-maxDispX, Math.min(maxDispX, currDx));
+                active.top = slotCy + Math.max(-maxDispY, Math.min(maxDispY, currDy));
+              }
+
+              active.setCoords();
+              canvasInstance.renderAll();
+            }
+          });
+
+          // Visual hover outline on unselected slots
+          canvasInstance.on("mouse:over", (e: any) => {
+            const target = e.target;
+            if (!target || !target.elementId || target.elementId === "frame-cutout-overlay" || target.elementId === "slot-adjuster-rect") return;
+            const active = canvasInstance.getActiveObject();
+            if (active !== target) {
+              target.set({
+                borderColor: "#F7D6D0",
+                borderDashArray: [6, 4],
+                hasBorders: true,
+              });
+              canvasInstance.renderAll();
+            }
+          });
+
+          canvasInstance.on("mouse:out", (e: any) => {
+            const target = e.target;
+            if (!target || !target.elementId || target.elementId === "frame-cutout-overlay" || target.elementId === "slot-adjuster-rect") return;
+            const active = canvasInstance.getActiveObject();
+            if (active !== target) {
+              target.set({
+                borderColor: "#E2B4BD",
+                borderDashArray: null,
+                hasBorders: false,
+              });
+              canvasInstance.renderAll();
+            }
+          });
+
           canvasInstance.on("selection:created", (e: any) => {
-            onSelectionChange?.(e.selected ? e.selected[0] : null);
+            const obj = e.selected ? e.selected[0] : null;
+            onSelectionChange?.(obj);
+            if (obj?.elementId && obj.elementId !== "frame-cutout-overlay" && obj.elementId !== "slot-adjuster-rect") {
+              obj.set({ hasBorders: true, borderColor: "#F7D6D0", borderDashArray: null });
+              onSlotSelect?.(obj.elementId);
+            }
           });
           canvasInstance.on("selection:updated", (e: any) => {
-            onSelectionChange?.(e.selected ? e.selected[0] : null);
+            const obj = e.selected ? e.selected[0] : null;
+            onSelectionChange?.(obj);
+            if (obj?.elementId && obj.elementId !== "frame-cutout-overlay" && obj.elementId !== "slot-adjuster-rect") {
+              obj.set({ hasBorders: true, borderColor: "#F7D6D0", borderDashArray: null });
+              onSlotSelect?.(obj.elementId);
+            }
           });
           canvasInstance.on("selection:cleared", () => {
             onSelectionChange?.(null);
@@ -484,19 +636,137 @@ export default function TemplateCanvas({
     }
   }, [scale, layout.width, layout.height]);
 
+  const handleDragOver = (e: React.DragEvent) => {
+    if (!interactive) return;
+    e.preventDefault();
+    e.stopPropagation();
+    if (!containerRef.current) return;
+    const rect = containerRef.current.getBoundingClientRect();
+    const clickX = (e.clientX - rect.left) / scale;
+    const clickY = (e.clientY - rect.top) / scale;
+
+    let foundSlotId: string | null = null;
+    for (const slot of photoSlotsList) {
+      const dx = clickX - slot.cx;
+      const dy = clickY - slot.cy;
+      const rad = (-slot.rotation * Math.PI) / 180;
+      const u = dx * Math.cos(rad) - dy * Math.sin(rad);
+      const v = dx * Math.sin(rad) + dy * Math.cos(rad);
+
+      if (Math.abs(u) <= slot.width / 2 && Math.abs(v) <= slot.height / 2) {
+        foundSlotId = slot.id;
+        break;
+      }
+    }
+    setDraggedOverSlotId(foundSlotId);
+  };
+
+  const handleDragLeave = () => {
+    setDraggedOverSlotId(null);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    if (!interactive) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const targetSlotId = draggedOverSlotId;
+    setDraggedOverSlotId(null);
+    if (!targetSlotId) return;
+
+    const file = e.dataTransfer.files?.[0];
+    if (file && file.type.startsWith("image/")) {
+      onPhotoDrop?.(targetSlotId, file);
+    }
+  };
+
   return (
     <div
-      className={`relative inline-block overflow-hidden shadow-2xl rounded-2xl bg-plum ${className}`}
+      className={`relative inline-block overflow-hidden shadow-2xl rounded-2xl bg-plum select-none ${className}`}
       style={{
         width: 1080 * scale,
         height: 1920 * scale,
       }}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
     >
       {isLoading && (
-        <div className="absolute inset-0 flex items-center justify-center bg-plum/90 z-10 text-cream">
+        <div className="absolute inset-0 flex items-center justify-center bg-plum/90 z-30 text-cream">
           <Loader2 className="w-8 h-8 animate-spin text-dustyPink" />
         </div>
       )}
+
+      {/* Magnetic Snapping Guidelines */}
+      {interactive && snapGuides?.x != null && (
+        <div
+          className="absolute top-0 bottom-0 pointer-events-none z-20 border-l-2 border-dashed border-[#F7D6D0] shadow-[0_0_8px_rgba(247,214,208,0.9)]"
+          style={{ left: `${snapGuides.x * scale}px` }}
+        />
+      )}
+      {interactive && snapGuides?.y != null && (
+        <div
+          className="absolute left-0 right-0 pointer-events-none z-20 border-t-2 border-dashed border-[#F7D6D0] shadow-[0_0_8px_rgba(247,214,208,0.9)]"
+          style={{ top: `${snapGuides.y * scale}px` }}
+        />
+      )}
+
+      {/* Drag Over Active Slot Highlight */}
+      {draggedOverSlotId && (
+        <div className="absolute inset-0 z-20 pointer-events-none bg-emerald-500/10 border-2 border-dashed border-emerald-400 flex items-center justify-center">
+          <div className="bg-[#181116]/95 px-4 py-2 rounded-full border border-emerald-400 text-emerald-300 text-xs font-bold tracking-wide shadow-2xl flex items-center gap-2 animate-pulse">
+            <span>Drop photo to place in slot</span>
+          </div>
+        </div>
+      )}
+
+      {/* Floating Canvas Slot Badges (Numbered chips on slots) */}
+      {interactive &&
+        !isLoading &&
+        photoSlotsList.map((slot, idx) => {
+          const isSelected = selectedSlotId === slot.id;
+          const leftPx = (slot.cx - slot.width / 2) * scale;
+          const topPx = (slot.cy - slot.height / 2) * scale;
+          const slotAngle = slot.rotation || 0;
+
+          return (
+            <div
+              key={slot.id}
+              className="absolute pointer-events-auto z-10"
+              style={{
+                left: `${leftPx}px`,
+                top: `${topPx}px`,
+                transform: `rotate(${slotAngle}deg)`,
+                transformOrigin: "top left",
+              }}
+            >
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onSlotSelect?.(slot.id);
+                }}
+                className={`group flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono font-bold tracking-wider transition-all shadow-md cursor-pointer -translate-x-1 -translate-y-2 active:scale-95 ${
+                  isSelected
+                    ? "bg-[#F7D6D0] text-[#181116] ring-2 ring-[#FAF7F2] scale-105 shadow-[#F7D6D0]/50"
+                    : "bg-[#181116]/85 backdrop-blur-md text-[#FAF7F2]/90 border border-white/20 hover:bg-[#E2B4BD] hover:text-[#181116] hover:scale-105"
+                }`}
+                title={`Select ${slot.label} (Key ${idx + 1})`}
+              >
+                <span
+                  className={`w-3.5 h-3.5 rounded-full flex items-center justify-center text-[9px] font-bold ${
+                    isSelected ? "bg-[#181116] text-[#F7D6D0]" : "bg-white/20 text-white"
+                  }`}
+                >
+                  {idx + 1}
+                </span>
+                <span className="text-[9px] font-sans font-semibold">
+                  {slot.label || `Photo ${idx + 1}`}
+                </span>
+              </button>
+            </div>
+          );
+        })}
+
       <div ref={containerRef} className="w-full h-full" />
     </div>
   );
