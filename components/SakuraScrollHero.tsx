@@ -17,7 +17,7 @@ import { ArrowDown, Sparkles } from "lucide-react";
 const TOTAL_FRAMES = 150;
 const LERP_FACTOR = 0.55;
 const LERP_EPSILON = 0.0005;
-const CONCURRENCY = 6;
+const CONCURRENCY = 12;
 
 const getFrameNumber = (index: number): number => {
   if (index >= TOTAL_FRAMES - 1) return 300;
@@ -166,98 +166,135 @@ export default function SakuraScrollHero() {
   // React state (strictly for low-frequency discrete UI updates)
   const [loadProgress, setLoadProgress] = useState<number>(0);
   const [isLoaded, setIsLoaded] = useState<boolean>(false);
+  const [isDismissed, setIsDismissed] = useState<boolean>(false);
   const [activeChapterIndex, setActiveChapterIndex] = useState<number>(0);
 
   // ============================================================================
-  // STEP 1: Preload Frame 0 & Frame 149 immediately, stream 1..148 in background
+  // STEP 1: 100% Readiness Preload Gatekeeper (Zero Stutter / 12-Worker Concurrency)
   // ============================================================================
   useEffect(() => {
     let isMounted = true;
     let loadedCount = 0;
+    let isComplete = false;
     const images: (FrameSource | null)[] = new Array(TOTAL_FRAMES).fill(null);
+
+    const preventWheelOrTouch = (e: Event) => {
+      e.preventDefault();
+    };
+
+    const preventScrollKeys = (e: KeyboardEvent) => {
+      if (["ArrowDown", "ArrowUp", "PageDown", "PageUp", "Space", " "].includes(e.key)) {
+        e.preventDefault();
+      }
+    };
 
     if (typeof window !== "undefined") {
       isCoarsePointerRef.current = window.matchMedia("(hover: none) and (pointer: coarse)").matches;
       reduceMotionRef.current = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
       laidOutWRef.current = window.innerWidth;
 
-      // On mobile viewports, skip desktop frame loading entirely
+      // On mobile viewports, skip desktop frame loading and preloader entirely
       if (window.innerWidth < 768) {
+        setIsLoaded(true);
+        setIsDismissed(true);
         return;
       }
+
+      // Lock desktop scrolling while assets load so user cannot scroll past hero prematurely
+      document.documentElement.style.overflow = "hidden";
+      document.body.style.overflow = "hidden";
+      window.scrollTo(0, 0);
+      if ("scrollRestoration" in window.history) {
+        window.history.scrollRestoration = "manual";
+      }
+
+      window.addEventListener("wheel", preventWheelOrTouch, { passive: false });
+      window.addEventListener("touchmove", preventWheelOrTouch, { passive: false });
+      window.addEventListener("keydown", preventScrollKeys, { passive: false });
     }
 
     imagesRef.current = images;
 
-    // Watchdog safety fallback: ensure hero becomes visible within 2s even on slow networks
-    const safetyTimer = setTimeout(() => {
-      if (isMounted) {
-        setIsLoaded(true);
-      }
-    }, 2000);
-
-    let isInitialReady = false;
-    const onInitialReady = () => {
-      if (!isMounted || isInitialReady) return;
-      isInitialReady = true;
+    const onAllFramesReady = () => {
+      if (!isMounted || isComplete) return;
+      isComplete = true;
       clearTimeout(safetyTimer);
-      setIsLoaded(true);
+
+      // Pre-render frame 0 on canvas and update bounds before unlocking view
       handleResize();
       drawFrame(0);
-      loadRemainingFrames();
+
+      // Restore normal page scrolling
+      if (typeof document !== "undefined") {
+        document.documentElement.style.overflow = "";
+        document.body.style.overflow = "";
+      }
+      if (typeof window !== "undefined") {
+        window.removeEventListener("wheel", preventWheelOrTouch);
+        window.removeEventListener("touchmove", preventWheelOrTouch);
+        window.removeEventListener("keydown", preventScrollKeys);
+      }
+
+      // Trigger CSS fade-out of preloader curtain
+      setIsLoaded(true);
+
+      // Fully unmount preloader after 500ms fade transition
+      setTimeout(() => {
+        if (isMounted) {
+          setIsDismissed(true);
+        }
+      }, 500);
     };
 
-    // Load Frame 0 (first frame) immediately to unlock hero interaction in milliseconds
-    loadFrameBitmap(getFrameUrl(0))
-      .then((bitmap) => {
-        if (!isMounted) return;
-        images[0] = bitmap;
-        loadedCount++;
-        setLoadProgress(Math.floor((loadedCount / TOTAL_FRAMES) * 100));
-        onInitialReady();
-      })
-      .catch(() => {
-        if (!isMounted) return;
-        onInitialReady();
-      });
+    // Watchdog safety fallback (6s): if network latency is severe, gracefully proceed with loaded frames
+    const safetyTimer = setTimeout(() => {
+      if (isMounted && !isComplete) {
+        console.warn("[SakuraHero] Watchdog timeout reached (6s). Proceeding with loaded frames.");
+        onAllFramesReady();
+      }
+    }, 6000);
 
-    // Also preload final bloom frame (index 149 / frame 300) so end state is instant
-    loadFrameBitmap(getFrameUrl(TOTAL_FRAMES - 1))
-      .then((bitmap) => {
-        if (!isMounted) return;
-        images[TOTAL_FRAMES - 1] = bitmap;
-        loadedCount++;
-      })
-      .catch(() => {});
+    // High-throughput parallel preload pool across CONCURRENCY (12) workers
+    let nextIndex = 0;
+    const workers = Array.from({ length: CONCURRENCY }, async () => {
+      while (nextIndex < TOTAL_FRAMES && isMounted) {
+        const idx = nextIndex++;
+        try {
+          const bitmap = await loadFrameBitmap(getFrameUrl(idx));
+          if (!isMounted) break;
+          images[idx] = bitmap;
+        } catch (err) {
+          console.warn(`[SakuraHero] Failed to load frame ${idx}, will use nearest neighbor fallback.`, err);
+        } finally {
+          loadedCount++;
+          if (isMounted) {
+            const pct = Math.min(100, Math.floor((loadedCount / TOTAL_FRAMES) * 100));
+            setLoadProgress(pct);
 
-    // Progressively stream remaining frames (1..148) with controlled concurrency
-    const loadRemainingFrames = () => {
-      let nextIndex = 1;
-      const endIndex = TOTAL_FRAMES - 1;
-
-      const workers = Array.from({ length: CONCURRENCY }, async () => {
-        while (nextIndex < endIndex && isMounted) {
-          const idx = nextIndex++;
-          try {
-            const bitmap = await loadFrameBitmap(getFrameUrl(idx));
-            if (!isMounted) break;
-            images[idx] = bitmap;
-            loadedCount++;
-            if (loadedCount % 15 === 0 || loadedCount === TOTAL_FRAMES) {
-              setLoadProgress(Math.floor((loadedCount / TOTAL_FRAMES) * 100));
+            if (loadedCount >= TOTAL_FRAMES) {
+              onAllFramesReady();
             }
-          } catch {
-            // Continue next frame
           }
         }
-      });
+      }
+    });
 
-      Promise.all(workers).catch(() => {});
-    };
+    Promise.all(workers).catch(() => {
+      onAllFramesReady();
+    });
 
     return () => {
       isMounted = false;
       clearTimeout(safetyTimer);
+      if (typeof document !== "undefined") {
+        document.documentElement.style.overflow = "";
+        document.body.style.overflow = "";
+      }
+      if (typeof window !== "undefined") {
+        window.removeEventListener("wheel", preventWheelOrTouch);
+        window.removeEventListener("touchmove", preventWheelOrTouch);
+        window.removeEventListener("keydown", preventScrollKeys);
+      }
       imagesRef.current.forEach((item) => {
         if (item && "close" in item && typeof item.close === "function") {
           item.close();
@@ -655,10 +692,32 @@ export default function SakuraScrollHero() {
       </aside>
 
       {/* ------------------------------------------------------------------ */}
-      {/* PRELOADER SCREEN (Desktop Only)                                    */}
+      {/* DESKTOP SCROLL LOCK (Active immediately in SSR/Hydration until 100%)*/}
       {/* ------------------------------------------------------------------ */}
       {!isLoaded && (
-        <div className="hidden md:flex fixed inset-0 z-50 flex-col items-center justify-center bg-charcoal text-blushWhite px-6">
+        <style
+          dangerouslySetInnerHTML={{
+            __html: `
+              @media (min-width: 768px) {
+                html, body {
+                  overflow: hidden !important;
+                  height: 100% !important;
+                }
+              }
+            `,
+          }}
+        />
+      )}
+
+      {/* ------------------------------------------------------------------ */}
+      {/* PRELOADER SCREEN (Desktop Only)                                    */}
+      {/* ------------------------------------------------------------------ */}
+      {!isDismissed && (
+        <div
+          className={`hidden md:flex fixed inset-0 z-50 flex-col items-center justify-center bg-charcoal text-blushWhite px-6 overscroll-none touch-none select-none transition-opacity duration-500 ease-out ${
+            isLoaded ? "opacity-0 pointer-events-none" : "opacity-100"
+          }`}
+        >
           <div className="flex items-center space-x-3 mb-6 animate-pulse">
             <Sparkles className="w-8 h-8 text-dustyMauve" />
             <h1 className="font-playfair text-4xl sm:text-5xl font-bold tracking-wider text-blushWhite">
