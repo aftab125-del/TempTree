@@ -22,6 +22,7 @@ interface ShowcasePreset {
   category: string;
   accentColor: string;
   slots: { label: string; ratio: string; w: string; h: string }[];
+  headerTag: string;
   afterTitle: string;
   afterSubtitle: string;
   bgGradient: string;
@@ -41,6 +42,7 @@ const PRESETS: ShowcasePreset[] = [
       { label: "Slot 1", ratio: "4:5 Portrait", w: "860", h: "1080" },
       { label: "Slot 2", ratio: "1:1 Square", w: "720", h: "720" },
     ],
+    headerTag: "Kyoto, Japan",
     afterTitle: "Golden Hour in Kyoto",
     afterSubtitle: "May 2026 · Captured on 35mm",
     bgGradient: "from-[#2b2124] via-[#1a1416] to-[#0f0c0d]",
@@ -63,8 +65,9 @@ const PRESETS: ShowcasePreset[] = [
     slots: [
       { label: "Slot 1", ratio: "9:16 Story", w: "1080", h: "1920" },
     ],
+    headerTag: "Issue 18 · Editorial",
     afterTitle: "Serenity & Space",
-    afterSubtitle: "Architectural Digest · Issue 18",
+    afterSubtitle: "Architectural Digest · June 2026",
     bgGradient: "from-[#231e21] via-[#181416] to-[#0d0a0c]",
     afterPhotos: [
       {
@@ -82,8 +85,9 @@ const PRESETS: ShowcasePreset[] = [
       { label: "Slot 1", ratio: "3:4 Moodboard", w: "810", h: "1080" },
       { label: "Slot 2", ratio: "1:1 Detail", w: "640", h: "640" },
     ],
+    headerTag: "Tokyo Botanical",
     afterTitle: "Under the Cherry Trees",
-    afterSubtitle: "Spring Solstice Edition",
+    afterSubtitle: "Spring Solstice · 35mm Analog",
     bgGradient: "from-[#331e28] via-[#1f1319] to-[#120a0f]",
     afterPhotos: [
       {
@@ -204,57 +208,63 @@ export default function ShowcaseReveal() {
         {/* ------------------------------------------------------------ */}
         {/* BASE LAYER: AFTER (The Finished Photo Story)                  */}
         {/* ------------------------------------------------------------ */}
-        <div className="absolute inset-0 flex items-center justify-center p-6 sm:p-10 pointer-events-none">
+        <div className="absolute inset-0 z-0 flex items-center justify-center p-6 sm:p-10 pointer-events-none">
           <div className="relative w-full h-full max-w-5xl flex items-center justify-around gap-6">
             {/* Story Card Container */}
-            <div className="relative h-full aspect-[9/16] rounded-2xl overflow-hidden shadow-2xl border border-white/20 bg-black/60 flex flex-col justify-between p-4">
+            <div className="relative h-full aspect-[9/16] rounded-2xl overflow-hidden shadow-2xl border border-white/20 bg-[#161214] flex flex-col justify-between p-4 sm:p-5">
               {/* Finished Photo Content */}
               <div
                 className="absolute inset-0 bg-cover bg-center"
                 style={{ backgroundImage: `url(${activePreset.afterPhotos[0].url})` }}
               >
-                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-black/30" />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/25 to-black/35" />
               </div>
 
               {/* Story Overlay Header */}
               <div className="relative z-10 flex justify-between items-center text-white/90">
-                <span className="font-playfair text-xs tracking-widest uppercase font-semibold">
-                  {activePreset.afterTitle}
+                <span className="font-poppins text-[10px] tracking-[0.2em] uppercase font-semibold text-peachPink drop-shadow">
+                  {activePreset.headerTag}
                 </span>
-                <span className="text-[10px] bg-black/40 px-2 py-0.5 rounded-full backdrop-blur-sm">
+                <span className="text-[10px] font-mono bg-black/60 px-2 py-0.5 rounded-full border border-white/10 backdrop-blur-sm text-white/90">
                   1080×1920 HD
                 </span>
               </div>
 
               {/* Story Overlay Footer */}
               <div className="relative z-10 text-white">
-                <p className="font-playfair text-lg font-bold">
+                <h3 className="font-playfair text-lg sm:text-xl font-bold text-cream drop-shadow-[0_2px_8px_rgba(0,0,0,0.8)] leading-tight">
                   {activePreset.afterTitle}
-                </p>
-                <p className="font-poppins text-[11px] text-white/70">
+                </h3>
+                <p className="font-poppins text-xs text-white/80 font-light mt-1 drop-shadow leading-snug">
                   {activePreset.afterSubtitle}
                 </p>
+                <span className="inline-block mt-2 font-mono text-[9px] uppercase tracking-wider text-peachPink/90 bg-black/40 px-2 py-0.5 rounded-full border border-white/10">
+                  Personalized Story
+                </span>
               </div>
             </div>
 
             {/* Second Photo (Desktop only) */}
             {activePreset.afterPhotos[1] && (
-              <div className="hidden sm:flex relative h-[85%] aspect-[9/16] rounded-2xl overflow-hidden shadow-2xl border border-white/20 bg-black/60 flex-col justify-between p-4">
+              <div className="hidden sm:flex relative h-[85%] aspect-[9/16] rounded-2xl overflow-hidden shadow-2xl border border-white/20 bg-[#161214] flex-col justify-between p-4 sm:p-5">
                 <div
                   className="absolute inset-0 bg-cover bg-center"
                   style={{ backgroundImage: `url(${activePreset.afterPhotos[1].url})` }}
                 >
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-black/30" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/25 to-black/35" />
                 </div>
                 <div className="relative z-10 flex justify-between items-center text-white/90">
-                  <span className="font-playfair text-xs tracking-widest uppercase font-semibold">
+                  <span className="font-poppins text-[10px] tracking-[0.2em] uppercase font-semibold text-peachPink">
                     {activePreset.afterPhotos[1].caption}
                   </span>
                   <Heart className="w-3.5 h-3.5 text-peachPink fill-peachPink" />
                 </div>
                 <div className="relative z-10 text-white">
-                  <p className="font-poppins text-xs text-white/80">
-                    Exported directly with TempTree
+                  <h4 className="font-playfair text-sm font-semibold text-cream leading-tight">
+                    {activePreset.afterPhotos[1].caption}
+                  </h4>
+                  <p className="font-poppins text-[10px] text-white/75 font-light mt-0.5">
+                    Exported in Lossless HD
                   </p>
                 </div>
               </div>
@@ -263,7 +273,7 @@ export default function ShowcaseReveal() {
 
           {/* Bottom Right Label: Finished Story */}
           <div className="absolute right-6 bottom-6 z-10 pointer-events-none">
-            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/75 border border-white/20 text-cream text-[11px] font-semibold backdrop-blur-md shadow-lg">
+            <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-[#181316]/90 border border-white/20 text-cream text-[11px] font-semibold backdrop-blur-md shadow-lg">
               <CheckCircle2 className="w-3.5 h-3.5 text-peachPink" />
               <span>After: Finished Story (Filled)</span>
             </span>
@@ -275,7 +285,7 @@ export default function ShowcaseReveal() {
         {/* Clipped based on sliderPosition percentage                   */}
         {/* ------------------------------------------------------------ */}
         <div
-          className="absolute inset-0 flex items-center justify-center p-6 sm:p-10 pointer-events-none bg-[#141012]/95 border-r border-cream/50"
+          className="absolute inset-0 z-10 flex items-center justify-center p-6 sm:p-10 pointer-events-none bg-[#141012] border-r border-cream/50"
           style={{
             clipPath: `polygon(0 0, ${sliderPosition}% 0, ${sliderPosition}% 100%, 0 100%)`,
           }}
@@ -285,59 +295,67 @@ export default function ShowcaseReveal() {
 
           <div className="relative w-full h-full max-w-5xl flex items-center justify-around gap-6 z-10">
             {/* Template Frame 1 with Detected Cutouts */}
-            <div className="relative h-full aspect-[9/16] rounded-2xl border-2 border-dustyMauve/50 bg-[#251f22] flex flex-col justify-between p-4 shadow-xl">
+            <div className="relative h-full aspect-[9/16] rounded-2xl border-2 border-dustyMauve/50 bg-[#1c171a] flex flex-col justify-between p-4 sm:p-5 shadow-xl">
               {/* Frame Header */}
               <div className="flex justify-between items-center text-xs text-cream/70">
-                <span className="font-mono text-[10px] text-peachPink">
+                <span className="font-mono text-[10px] text-peachPink font-bold uppercase tracking-wider">
                   Raw Template Frame
                 </span>
-                <span className="text-[10px] bg-charcoal/80 px-2 py-0.5 rounded border border-dustyMauve/30">
-                  {activePreset.category}
+                <span className="text-[10px] bg-[#2B2B2B] px-2.5 py-0.5 rounded-full border border-dustyMauve/30 font-poppins text-cream/90 font-medium">
+                  {activePreset.category} Style
                 </span>
               </div>
 
               {/* Detected Photo Slot Mock (Dashed Empty Window) */}
-              <div className="my-auto w-full aspect-[4/5] rounded-xl border-2 border-dashed border-peachPink/80 bg-black/60 flex flex-col items-center justify-center text-center p-3">
+              <div className="my-auto w-full aspect-[4/5] rounded-xl border-2 border-dashed border-peachPink/80 bg-[#120d10] flex flex-col items-center justify-center text-center p-4">
                 <Wand2 className="w-6 h-6 text-peachPink mb-2 animate-pulse" />
-                <span className="text-xs font-mono font-bold text-cream">
+                <span className="text-xs font-mono font-bold text-cream uppercase tracking-wide">
                   {activePreset.slots[0].label} Detected
                 </span>
-                <span className="text-[10px] font-mono text-peachPink/80 mt-1">
+                <span className="text-[11px] font-mono text-peachPink/90 mt-1 font-semibold">
                   Ratio: {activePreset.slots[0].ratio}
                 </span>
-                <span className="text-[9px] font-mono text-cream/50 mt-0.5">
+                <span className="text-[10px] font-mono text-cream/60 mt-0.5">
                   ({activePreset.slots[0].w} × {activePreset.slots[0].h} px)
+                </span>
+                <span className="inline-block mt-3 text-[9px] font-mono uppercase tracking-wider text-peachPink/80 bg-peachPink/10 px-2.5 py-0.5 rounded-full border border-peachPink/20">
+                  Drop Photo Here
                 </span>
               </div>
 
               {/* Frame Footer */}
-              <div className="text-xs text-cream/50 font-mono text-center">
-                Waiting for photo drop...
+              <div className="flex items-center justify-between text-xs text-cream/60 font-mono pt-1">
+                <span className="text-[10px] text-peachPink/80">Slot 1 · Auto-Cutout</span>
+                <span className="text-[10px] text-cream/40">Waiting for photo</span>
               </div>
             </div>
 
             {/* Template Frame 2 (Desktop only) */}
             {activePreset.afterPhotos[1] && (
-              <div className="hidden sm:flex relative h-[85%] aspect-[9/16] rounded-2xl border-2 border-dustyMauve/50 bg-[#251f22] flex-col justify-between p-4 shadow-xl">
+              <div className="hidden sm:flex relative h-[85%] aspect-[9/16] rounded-2xl border-2 border-dustyMauve/50 bg-[#1c171a] flex-col justify-between p-4 sm:p-5 shadow-xl">
                 <div className="flex justify-between items-center text-xs text-cream/70">
-                  <span className="font-mono text-[10px] text-peachPink">
+                  <span className="font-mono text-[10px] text-peachPink font-bold uppercase tracking-wider">
                     Secondary Slot
                   </span>
                   <Layers className="w-3.5 h-3.5 text-dustyMauve" />
                 </div>
 
-                <div className="my-auto w-full aspect-square rounded-xl border-2 border-dashed border-dustyMauve bg-black/60 flex flex-col items-center justify-center text-center p-3">
-                  <Camera className="w-5 h-5 text-dustyMauve mb-1" />
-                  <span className="text-xs font-mono font-bold text-cream">
-                    1:1 Square Slot
+                <div className="my-auto w-full aspect-square rounded-xl border-2 border-dashed border-dustyMauve bg-[#120d10] flex flex-col items-center justify-center text-center p-3">
+                  <Camera className="w-5 h-5 text-dustyMauve mb-1.5" />
+                  <span className="text-xs font-mono font-bold text-cream uppercase">
+                    {activePreset.slots[1]?.label || "Slot 2"}
                   </span>
-                  <span className="text-[9px] font-mono text-cream/60 mt-1">
-                    Auto-Cutout Window
+                  <span className="text-[10px] font-mono text-peachPink/80 mt-0.5 font-medium">
+                    Ratio: {activePreset.slots[1]?.ratio || "1:1 Square"}
+                  </span>
+                  <span className="text-[9px] font-mono text-cream/50 mt-0.5">
+                    ({activePreset.slots[1]?.w || "640"} × {activePreset.slots[1]?.h || "640"} px)
                   </span>
                 </div>
 
-                <div className="text-xs text-cream/50 font-mono text-center">
-                  Alpha Cutout Ready
+                <div className="flex items-center justify-between text-xs text-cream/60 font-mono pt-1">
+                  <span className="text-[10px] text-dustyMauve/80">Alpha Cutout</span>
+                  <span className="text-[10px] text-cream/40">Ready</span>
                 </div>
               </div>
             )}
@@ -345,7 +363,7 @@ export default function ShowcaseReveal() {
 
           {/* Bottom Left Label: Before State */}
           <div className="absolute left-6 bottom-6 z-10 pointer-events-none">
-            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/75 border border-dustyMauve/40 text-peachPink text-[11px] font-semibold backdrop-blur-md shadow-lg">
+            <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-[#181316]/90 border border-dustyMauve/40 text-peachPink text-[11px] font-semibold backdrop-blur-md shadow-lg">
               <Wand2 className="w-3.5 h-3.5 text-peachPink" />
               <span>Before: Raw Frame (Empty Cutouts)</span>
             </span>
