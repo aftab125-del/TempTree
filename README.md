@@ -15,7 +15,7 @@
   Customize photo slots directly in-browser with precision snapping and export ready-to-post 1080×1920 visuals in seconds.
 </p>
 
-[Explore Templates](http://localhost:3000/#gallery) · [How It Works](http://localhost:3000/#how-it-works) · [Features](#-key-features) · [CLI Tool](#-automated-frame-conversion-cli) · [Getting Started](#-getting-started)
+[Explore Templates](http://localhost:3000/#gallery) · [How It Works](http://localhost:3000/#how-it-works) · [Features](#-key-features) · [Shortcuts](#-keyboard-shortcuts-cheat-sheet) · [CLI Tool](#-automated-frame-conversion-cli)
 
 </div>
 
@@ -32,8 +32,6 @@
   - [5. Privacy-First & Zero Sign-Up](#5-privacy-first--zero-sign-up)
 - [Brand Identity & Design System](#-brand-identity--design-system)
 - [Architecture & Tech Stack](#-architecture--tech-stack)
-- [Project Directory Structure](#-project-directory-structure)
-- [Getting Started](#-getting-started)
 - [Keyboard Shortcuts Cheat Sheet](#-keyboard-shortcuts-cheat-sheet)
 - [Automated Frame Conversion CLI](#-automated-frame-conversion-cli)
 - [Roadmap](#-roadmap)
@@ -172,85 +170,6 @@ flowchart TD
 - **Animations & Smooth Scrolling**: [Framer Motion](https://www.framer.com/motion/), [GSAP](https://gsap.com/), and [Lenis](https://lenis.darkroom.engineering/)
 - **Styling**: [Tailwind CSS 3.4](https://tailwindcss.com/) with custom CSS variables
 - **Icons**: [Lucide React](https://lucide.dev/)
-
----
-
-## 📁 Project Directory Structure
-
-```text
-temptree/
-├── app/
-│   ├── layout.tsx                     # Root HTML layout with Playfair & Poppins fonts
-│   ├── page.tsx                       # Homepage (Sakura hero, showcase, stepper, bento)
-│   ├── editor/[templateId]/page.tsx   # Core in-browser Story Editor
-│   ├── gallery/page.tsx               # Template discovery & visual frame converter
-│   ├── upload-template/page.tsx       # Creator frame-upload flow
-│   ├── api/admin/convert-frame/       # Sharp automated placeholder detection endpoint
-│   ├── privacy/ & terms/              # Legal and privacy policy pages
-│   └── globals.css                    # Tailwind root directives and animations
-├── components/
-│   ├── SakuraScrollHero.tsx           # Desktop 300-frame canvas scroll scrubbing engine
-│   ├── MobileSakuraHero.tsx           # Lightweight mobile atmospheric hero
-│   ├── TemplateCanvas.tsx             # Fabric.js story canvas with badges & guidelines
-│   ├── HowItWorksStepper.tsx          # 3-step interactive journey with 3D perspective
-│   ├── ShowcaseReveal.tsx             # Interactive before/after split slider
-│   ├── FeaturesBento.tsx              # Bento grid of core product capabilities
-│   ├── ImageCropperModal.tsx          # Precision photo framing & corner radius modal
-│   ├── MobileExportModal.tsx          # Thumb-reachable mobile export dialog
-│   └── TemplateDesignGuidelines.tsx   # In-app frame authoring guidelines
-├── data/
-│   └── templates.json                 # Template catalog (elements, slots, coordinates)
-├── docs/
-│   ├── PRD.md                         # Product Requirements Document
-│   ├── DESIGN.md                      # Aesthetic specifications & animation timings
-│   ├── TECH-STACK.md                  # Architectural decisions & considerations
-│   └── TEMPLATE-WORKFLOW.md           # Template authoring & curation guide
-├── lib/
-│   ├── frame-converter.ts             # Sharp contour detection & cutout generator
-│   └── template-store.ts              # IndexedDB persistence layer
-├── public/
-│   ├── frames/                        # Cutout frame PNG assets
-│   ├── previews/                      # High-res template thumbnails
-│   └── sakura-frames/                 # Compressed 150-frame WebP hero sequence
-├── scripts/
-│   ├── convert-frame-template.mjs     # Standalone CLI for frame conversion
-│   └── convert-frames-to-webp.mjs     # Frame sequence optimization script
-└── types/
-    └── template.ts                    # TypeScript definitions for templates & layouts
-```
-
----
-
-## 🚀 Getting Started
-
-### Prerequisites
-- **Node.js**: `v18.17.0` or higher
-- **Package Manager**: `npm` (v9+) or `pnpm`
-
-### Installation
-
-1. **Clone the repository**:
-   ```bash
-   git clone https://github.com/aftab125-del/TempTree.git
-   cd TempTree
-   ```
-
-2. **Install dependencies**:
-   ```bash
-   npm install
-   ```
-
-3. **Start the local development server**:
-   ```bash
-   npm run dev
-   ```
-   Open [http://localhost:3000](http://localhost:3000) in your browser.
-
-4. **Build for production**:
-   ```bash
-   npm run build
-   npm run start
-   ```
 
 ---
 
